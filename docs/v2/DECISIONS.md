@@ -133,4 +133,5 @@ This section records only defects confirmed during V2 work. Add a regression tes
 
 - CI-001: Clean-checkout lint could not resolve internal workspace package types before their
   `dist` entry points existed. V2-D012 passed an isolated Node 22.16.0 offline `npm ci` followed by
-  the complete `npm run check`; PR CI remains the independent runner verification.
+  the complete `npm run check`. GitHub Actions run 29904308912 then passed the independent Linux
+  runner verification for commit `ed1aae9`.

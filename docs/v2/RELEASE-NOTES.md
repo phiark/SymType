@@ -24,6 +24,8 @@ history, or game result.
 - The obsolete runtime API shadow source and unused Radix Tabs dependency were removed.
 - Contribution rules, Issue/PR templates, CI, changelog, and the Issue #1 branch workflow are stored
   in the repository.
+- GitHub Actions run 29904308912 passed the clean Linux install, formatting, lint, typecheck, tests,
+  and build after the workspace-entry-point repair.
 
 ## Compatibility and data
 
@@ -42,9 +44,10 @@ fast. This is accepted for the local single-user release; no architecture rewrit
 
 See `docs/v2/PERFORMANCE-RESULTS.md` for the complete bounded evidence and honest limits.
 
-## Acceptance still required before merge/tag
+## External acceptance still required before merge/tag
 
-- GitHub Actions success and one independent approving review.
+- Complete GitHub sudo-mode confirmation and save the prepared `main` protection rule.
+- Obtain one approval from a distinct GitHub reviewer; the author cannot approve the author's PR.
 
 The official ASD-STE100 Issue 9 PDF is unavailable. Formal normative STE review remains externally
 Blocked; the minimum user action is to provide the official PDF as a readable local file path. The

@@ -2,7 +2,7 @@
 
 **Last update:** 2026-07-22
 **Method:** Document-driven release convergence
-**Release state:** Gate 2 is done; PR #2 CI remediation is active
+**Release state:** PR #2 CI is green; independent review and settings authentication are blocked
 
 ## Purpose
 
@@ -40,6 +40,11 @@ confirmed release problem.
 - An isolated source copy without `.git`, `node_modules`, or any `dist` passed Node 22.16.0 offline
   `npm ci`, automatically ran `prepare`, then passed the complete 421-test, 22-golden, four-build
   `npm run check`.
+- GitHub Actions run 29904308912 passed install, formatting, lint, typecheck, tests, and build for
+  the clean-checkout repair commit `ed1aae9`.
+- Repository settings now allow only Squash Merge and automatically delete merged branches. The
+  complete `main` protection rule is prepared, but GitHub requires the owner to complete sudo-mode
+  account confirmation before the rule can be saved.
 - The official ASD-STE100 Issue 9 PDF is unavailable. The normative review remains externally
   blocked and does not block independent product work.
 
@@ -64,16 +69,16 @@ confirmed release problem.
 
 ## Gate status
 
-| Gate                         | Release exit                                                | Status                       | Evidence or disposition                           |
-| ---------------------------- | ----------------------------------------------------------- | ---------------------------- | ------------------------------------------------- |
-| 0. Protect current state     | Supported install, build, start, health                     | Done                         | Node 22 clean install/build/start evidence        |
-| 1. Freeze V1 behavior        | Literal business outputs and contracts pass                 | Done                         | 22 golden tests plus full V1 suites               |
-| 2. Minimal credible baseline | Correct empty/100k, child-process, browser, bundle evidence | Done                         | `reports/performance/v1-baseline.json`            |
-| 3. Optimize bottlenecks      | Only act on a proven release problem                        | Cancelled                    | No release-level optimization is required         |
-| 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Required at final acceptance | No redesign planned; final browser review remains |
-| 5. Converge code             | Remove confirmed dead source/dependency only                | Required, bounded            | Broad maintenance gates are Optional/Cancelled    |
-| 6. Conform documents         | Official Issue 9 review                                     | Blocked                      | User must provide the official PDF local path     |
-| 7. Accept and publish        | Check, core E2E, data safety, CI, PR review                 | In progress                  | Current active gate                               |
+| Gate                         | Release exit                                                | Status    | Evidence or disposition                       |
+| ---------------------------- | ----------------------------------------------------------- | --------- | --------------------------------------------- |
+| 0. Protect current state     | Supported install, build, start, health                     | Done      | Node 22 clean install/build/start evidence    |
+| 1. Freeze V1 behavior        | Literal business outputs and contracts pass                 | Done      | 22 golden tests plus full V1 suites           |
+| 2. Minimal credible baseline | Correct empty/100k, child-process, browser, bundle evidence | Done      | `reports/performance/v1-baseline.json`        |
+| 3. Optimize bottlenecks      | Only act on a proven release problem                        | Cancelled | No release-level optimization is required     |
+| 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Done      | Final Chromium/WebKit review passed           |
+| 5. Converge code             | Remove confirmed dead source/dependency only                | Done      | Bounded cleanup and release checks passed     |
+| 6. Conform documents         | Official Issue 9 review                                     | Blocked   | User must provide the official PDF local path |
+| 7. Accept and publish        | Check, core E2E, data safety, CI, PR review                 | Blocked   | Independent review and settings auth remain   |
 
 ## Gate 0 and Gate 1 evidence
 
@@ -123,8 +128,9 @@ for a single-user local application. Record it as an Optional future target if r
 
 ## Active release work
 
-1. Verify V2-D012 in an isolated clean checkout and push the focused CI repair to PR #2.
-2. Wait for PR CI and an independent review before squash merge.
+1. The repository owner completes GitHub sudo-mode confirmation and saves the prepared `main`
+   protection rule.
+2. A distinct GitHub reviewer approves PR #2. Recheck the final head CI, then squash merge.
 
 ## GitHub bootstrap decision
 
@@ -135,17 +141,19 @@ through that PR; no product file was committed directly to `main`.
 
 ## Active risks
 
-| Risk                                                    | Control                                                                   | State                    |
-| ------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------ |
-| Local product tree has no older Git baseline            | Literal goldens, raw baseline, final PR diff                              | Controlled               |
-| Active Homebrew Node resolves to 25                     | Use explicit Node 22.16.0 PATH in release commands                        | Controlled               |
-| `gh` CLI token is invalid                               | Use Git credential for push and authenticated connector for PR/CI data    | Blocks settings API only |
-| Clean CI lacked workspace `dist` type entry points      | Root npm `prepare`; isolated clean install and check pass                 | PR rerun pending         |
-| Official STE PDF is absent                              | Do not use unofficial summaries; request only the local official PDF path | Externally blocked       |
-| 100k all-time stats blocks the local event loop briefly | Keep observable; optimize only after real user evidence                   | Accepted                 |
+| Risk                                                    | Control                                                                   | State              |
+| ------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------ |
+| Local product tree has no older Git baseline            | Literal goldens, raw baseline, final PR diff                              | Controlled         |
+| Active Homebrew Node resolves to 25                     | Use explicit Node 22.16.0 PATH in release commands                        | Controlled         |
+| `gh` CLI token is invalid                               | Use Git credential, connector, and authenticated Chrome where available   | Controlled         |
+| Branch-rule save requires GitHub sudo mode              | Owner completes the open account-confirmation page                        | Externally blocked |
+| Clean CI lacked workspace `dist` type entry points      | Root npm `prepare`; isolated and GitHub checks pass                       | Resolved           |
+| Official STE PDF is absent                              | Do not use unofficial summaries; request only the local official PDF path | Externally blocked |
+| 100k all-time stats blocks the local event loop briefly | Keep observable; optimize only after real user evidence                   | Accepted           |
 
 ## Outcomes
 
-Gates 0, 1, and 2 are complete. No performance architecture change is justified. PR #2 contains the
-bounded release candidate. Active work is limited to the clean-checkout CI repair, CI evidence, and
-independent review; it must not reopen Optional performance or maintenance-platform work.
+Gates 0, 1, 2, 4, and 5 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
+blocked. PR #2 contains the bounded release candidate and its CI is green. Gate 7 now waits only for
+GitHub account confirmation of the prepared protection rule and an independent reviewer; it must
+not reopen Optional performance or maintenance-platform work.

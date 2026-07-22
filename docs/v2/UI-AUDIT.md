@@ -1,6 +1,6 @@
 # SymType 2.0 Interface Audit
 
-**State:** Capture pending
+**State:** Complete; final Chromium/WebKit candidate accepted
 **Last update:** 2026-07-22
 
 ## Audit surface
@@ -11,8 +11,9 @@ offline, failure, success, light, dark, reduced-motion, and keyboard-only states
 
 ## Evidence rule
 
-Use screenshots captured in the current V2 audit. Inspect each saved image before acceptance. Do not
-use an old screenshot as current audit evidence.
+`docs/v2/VISUAL-REVIEW.md` is the release evidence record. V2 changes no UI source, so the accepted
+30-image Chromium/WebKit matrix is reused only after the final production replay verifies the same
+critical routes, states, reflow, focus, and runtime boundaries.
 
 ## Required viewports
 
@@ -35,7 +36,10 @@ use an old screenshot as current audit evidence.
 
 ## Findings
 
-No V2 screenshot has been accepted. Do not report an interface finding before current-run capture.
+The final candidate passed 1024-pixel layout, 200-percent reflow, light/dark training states,
+disconnected behavior, populated Analytics, restore, focus, axe, and every game path in Chromium
+and WebKit. The accepted matrix has no open severity-1 or severity-2 visual defect. See
+`docs/v2/VISUAL-REVIEW.md` for the bounded evidence and honest limits.
 
 ## Evidence limits
 
