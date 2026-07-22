@@ -49,7 +49,7 @@ an explicit disposition.
 | V2-G7-002  | Pass core Chromium and WebKit E2E                        | Release Blocker | 74 collected: 73 pass, 1 intentional skip               | full production replay, 7.1 minutes                | Verified  |
 | V2-G7-003  | Accept minimal performance evidence                      | Required        | Gate 2 baseline and 100k product smoke                  | no release-level blocker                           | Verified  |
 | V2-G7-004  | Pass clean one-click start                               | Release Blocker | offline isolated install/start/rebuild smoke            | port fallback, health, reuse, modes, shutdown      | Verified  |
-| V2-G7-005  | Complete independent release review                      | Release Blocker | PR #2 and release evidence                              | distinct GitHub approval still required            | Blocked   |
+| V2-G7-005  | Record explicit release merge authorization              | Release Blocker | PR #2, release evidence, and V2-D013                    | maintainer-authorized one-time review waiver       | Verified  |
 | V2-GIT-001 | Persist Issue/branch/commit/PR workflow                  | Required        | AGENTS, CONTRIBUTING, templates                         | Prettier and YAML parse                            | Verified  |
 | V2-GIT-002 | Run applicable CI on push and PR                         | Release Blocker | workflow plus V2-D012 clean-install preparation         | required Node 22 check on both triggers            | Verified  |
 | V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR | Release Blocker | Issue #1, commit `cd66491`, branch, and PR #2           | remote SHA and PR metadata verified                | Verified  |

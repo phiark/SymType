@@ -127,6 +127,21 @@ through npm's standard root `prepare` lifecycle after dependency installation. T
 `npm ci` produce the same internal type entry points as a normal local install without weakening
 ESLint, changing application behavior, or adding a separate CI-only path.
 
+## V2-D013: Permit a one-time approval waiver for bootstrap PR #2
+
+**Date:** 2026-07-22
+**State:** Accepted by the repository maintainer
+
+PR #2 has a clean final diff, no unresolved review threads, passing local release checks, passing
+Chromium/WebKit acceptance, and passing push and pull-request CI. The repository has no distinct
+reviewer available for its first product import, so the maintainer explicitly authorized disabling
+the independent-approval requirement and merging the already verified PR directly.
+
+This is a one-time bootstrap exception, not a change to the durable development process. Keep the
+pull-request, Node 22 status check, up-to-date branch, resolved-conversation, linear-history,
+no-bypass, no-force-push, and no-deletion protections active during the merge. Restore the
+independent-approval requirement immediately afterwards for future changes.
+
 ## Confirmed defects
 
 This section records only defects confirmed during V2 work. Add a regression test before a fix.

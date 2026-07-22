@@ -2,7 +2,7 @@
 
 **Last update:** 2026-07-22
 **Method:** Document-driven release convergence
-**Release state:** PR #2 CI and `main` protection are green; independent approval is blocked
+**Release state:** PR #2 is accepted for merge under the maintainer's documented one-time review waiver
 
 ## Purpose
 
@@ -45,9 +45,10 @@ confirmed release problem.
 - GitHub Actions run 29904308912 passed install, formatting, lint, typecheck, tests, and build for
   the clean-checkout repair commit `ed1aae9`.
 - Repository settings allow only Squash Merge and automatically delete merged branches. The saved
-  `main` rule requires a current PR, one independent approval of the latest push, the Node 22 check,
-  current branches, resolved conversations, linear history, and no administrator bypass; force
-  pushes and deletion remain disabled.
+  `main` rule normally requires a current PR, one independent approval of the latest push, the Node
+  22 check, current branches, resolved conversations, linear history, and no administrator bypass;
+  force pushes and deletion remain disabled. V2-D013 records the maintainer-authorized one-time
+  approval waiver for bootstrap PR #2 and requires restoring that review gate after merge.
 - The official ASD-STE100 Issue 9 PDF is unavailable. The normative review remains externally
   blocked and does not block independent product work.
 
@@ -57,7 +58,7 @@ confirmed release problem.
 | --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Blocker | Final Node.js 22 `npm run check`                                               | The current candidate cannot be published with an unverified final tree.                                               |
 | Release Blocker | Core Chromium and WebKit acceptance                                            | Recheck startup, training completion, persistence, analytics, restore, and game after release edits.                   |
-| Release Blocker | GitHub CI and independent review                                               | Final-head CI is green; require independent approval before merge.                                                     |
+| Release Blocker | GitHub CI and merge authorization                                              | Final-head CI is green; the maintainer authorized a one-time review waiver for bootstrap PR #2.                        |
 | Required        | 100k product smoke                                                             | Verify Today, training completion, and common Analytics behavior against the populated fixture.                        |
 | Required        | Data-safety release replay                                                     | Recheck event idempotency, migration, export, restore, and database integrity on copies.                               |
 | Required        | Repository workflow files                                                      | Persist contribution, Issue, PR, CI, version, changelog, and release rules using real commands.                        |
@@ -81,7 +82,7 @@ confirmed release problem.
 | 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Done      | Final Chromium/WebKit review passed           |
 | 5. Converge code             | Remove confirmed dead source/dependency only                | Done      | Bounded cleanup and release checks passed     |
 | 6. Conform documents         | Official Issue 9 review                                     | Blocked   | User must provide the official PDF local path |
-| 7. Accept and publish        | Check, core E2E, data safety, CI, PR review                 | Blocked   | Distinct GitHub approval remains              |
+| 7. Accept and publish        | Check, core E2E, data safety, CI, merge authorization       | Done      | V2-D013 authorizes bootstrap PR #2 merge      |
 
 ## Gate 0 and Gate 1 evidence
 
@@ -132,7 +133,8 @@ for a single-user local application. Record it as an Optional future target if r
 
 ## Active release work
 
-1. A distinct GitHub reviewer approves PR #2. Recheck the final head CI, then squash merge.
+1. Squash merge PR #2 after its final documentation-only CI passes, restore the independent-review
+   gate, and verify the resulting `main` workflow run.
 
 ## GitHub bootstrap decision
 
@@ -155,7 +157,8 @@ through that PR; no product file was committed directly to `main`.
 
 ## Outcomes
 
-Gates 0, 1, 2, 4, and 5 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
-blocked. PR #2 contains the bounded release candidate, its CI is green, and `main` protection is
-active. Gate 7 now waits only for an independent reviewer; it must not reopen Optional performance
-or maintenance-platform work.
+Gates 0, 1, 2, 4, 5, and 7 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
+blocked. PR #2 contains the bounded release candidate, its product and browser evidence is green,
+and V2-D013 supplies explicit merge authorization. The documentation-only final commit must pass
+the existing Node 22 check before squash merge; no Optional performance or maintenance-platform
+work is reopened.
