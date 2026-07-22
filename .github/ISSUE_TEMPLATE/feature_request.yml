@@ -1,0 +1,74 @@
+name: Feature request
+description: Propose a scoped change with clear user value and acceptance criteria
+title: "feature: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        SymType 2.0 is a convergence release. A proposal must preserve V1 behavior unless a separately approved scope change says otherwise.
+  - type: textarea
+    id: background
+    attributes:
+      label: Background
+      description: Describe the user problem and the evidence that it exists.
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: User value
+      description: Explain who benefits and what outcome improves.
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requested behavior
+      description: Define the observable behavior without prescribing unnecessary architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: List related work explicitly outside this Issue.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List concrete, independently verifiable outcomes.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test and evidence requirements
+      description: Name the unit, integration, browser, visual, or data-safety evidence needed.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risks and compatibility
+      description: Cover V1 output, SQLite history, security, browsers, accessibility, performance, and rollback.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Suggested approach
+      description: Optional implementation idea, alternatives considered, and unresolved decisions.
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing Issues and did not find an equivalent open request.
+          required: true
+        - label: This request does not include secrets, private typing content, or user data.
+          required: true

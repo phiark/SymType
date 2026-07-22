@@ -1,0 +1,105 @@
+name: Bug report
+description: Report a reproducible SymType defect or regression
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Remove secrets, personal typing content, local databases, and other private data before submitting.
+        If the problem is not reproducible yet, describe the evidence still needed rather than guessing at a fix.
+  - type: textarea
+    id: background
+    attributes:
+      label: Background and problem
+      description: Explain the context, user impact, and why this is a defect.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest repeatable sequence, including input mode or data setup when relevant.
+      placeholder: |
+        1. Start SymType with ...
+        2. Open ...
+        3. Enter ...
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: State exactly what happens, including visible errors and whether data is affected.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State the observable result that would make the issue resolved.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and scope
+      description: Identify affected users, modes, browsers, data, and known unaffected paths.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, supported Node version, browser/version, SymType revision, and launch method.
+      placeholder: |
+        OS:
+        Node/npm:
+        Browser:
+        Revision:
+        Launch command:
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Paste sanitized errors or attach screenshots. Never attach the SQLite database or private text.
+  - type: textarea
+    id: analysis
+    attributes:
+      label: Initial analysis and proposed fix
+      description: Separate confirmed evidence from hypotheses and outline the smallest safe solution.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List concrete, independently verifiable outcomes.
+      placeholder: |
+        - [ ] The reproduction no longer fails.
+        - [ ] Existing history and deterministic outputs remain unchanged.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Required tests
+      description: Identify the regression test and any browser, migration, restore, or data-safety checks.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk and compatibility
+      description: Note API, database, settings, browser, security, performance, or rollback implications.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I removed secrets, personal typing content, databases, and other private data.
+          required: true
+        - label: I searched existing Issues and did not find an equivalent open report.
+          required: true

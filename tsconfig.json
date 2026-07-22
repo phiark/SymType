@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals", "@playwright/test"]
+  },
+  "include": ["*.config.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+}
