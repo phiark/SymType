@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Profiler, useCallback, useState, type ProfilerOnRenderCallback } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ import { TypingSurface, type TypingProgress } from "./TypingSurface";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 function renderSurface(
@@ -49,6 +50,21 @@ function renderSurface(
 }
 
 describe("TypingSurface keyboard event boundary", () => {
+  it("cancels transient callbacks when the surface unmounts", async () => {
+    vi.useFakeTimers();
+    const { surface, onComplete } = renderSurface("a", { settings: { stopOnError: true } });
+
+    fireEvent.keyDown(surface, { key: "x", code: "KeyX" });
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+    cleanup();
+    await act(() => vi.runAllTimers());
+
+    expect(vi.getTimerCount()).toBe(0);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
   it("ignores IME composition events and operating-system key repeats", () => {
     const { surface, onEvent, onComplete } = renderSurface();
 

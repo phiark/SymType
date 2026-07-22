@@ -214,7 +214,7 @@
     ],
     "server": {
       "id": "100k",
-      "path": "/Users/zero_lab/Desktop/untitled folder/.symtype-perf-data/fixtures/100k.sqlite3",
+      "path": "fixtures/100k.sqlite3",
       "byteSize": 63426560,
       "sha256": "434253c1e5dcd4a1d8a8bb252745711e6abe6c10a06d0780072658f583e62093",
       "manifest": {

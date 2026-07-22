@@ -24,14 +24,16 @@ confirmed release problem.
 - No product-level release blocker or dead user control was found in the current source audit.
 - The final focused data-safety replay passed seven migration, event-integrity, settings,
   persistence, export, backup, restore, and canonical-history files with 34 tests.
-- The final Node.js 22.16.0 `npm run check` passed lint, strict type checks, 60 Vitest files with
-  421 tests passed and one intentional skip, 22 literal regression tests, and all four builds.
+- The final Node.js 22.16.0 `npm run check` passed lint, strict type checks, 61 Vitest files with
+  424 tests passed and one intentional skip, 22 literal regression tests, and all four builds.
 - The final isolated launcher smoke passed offline clean install/build/migration, occupied-port
   fallback, schema 10 health, live reuse, private POSIX modes, damaged-output rebuild, lockfile
   planning, and graceful shutdown.
 - The final two-engine replay passed visual/reflow/axe, every training mode, formal tests, restore,
   service restart plus fresh-browser SQLite history, runtime boundaries, and all game paths without
   a release-level console error.
+- Release cleanup now cancels typing-surface transient timers on unmount, preventing late React
+  updates while leaving keystroke and completion results unchanged.
 - The target GitHub repository has the file-free bootstrap commit `95aa3e5` on `main`, Issue #1,
   branch `chore/1-symtype-2-release`, commit `cd66491`, and ready-for-review PR #2.
 - PR CI run 29903653128 exposed one clean-checkout infrastructure defect: type-aware lint ran
@@ -102,6 +104,7 @@ validity was corrected before closure:
 - populated statistics use the all-time period and return all 100,000 fixture events;
 - the event-loop histogram runs inside the built Fastify child and reports over IPC;
 - fixture hashes, schema 10, integrity, foreign keys, event linkage, and category mix are checked;
+- committed fixture evidence uses the manifest-relative path, never a measurement-machine path;
 - browser input persists the exact 141-event stream in both Chromium/WebKit measurement paths;
 - no 1m or 30-minute result is required to close Gate 2.
 

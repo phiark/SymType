@@ -135,3 +135,9 @@ This section records only defects confirmed during V2 work. Add a regression tes
   `dist` entry points existed. V2-D012 passed an isolated Node 22.16.0 offline `npm ci` followed by
   the complete `npm run check`. GitHub Actions run 29904308912 then passed the independent Linux
   runner verification for commit `ed1aae9`.
+- PERF-001: The server fragment exposed the measurement machine's absolute fixture path. Evidence
+  now stores the deterministic manifest-relative path (or a custom fixture basename), with a
+  focused regression test; measured values and V1 product behavior are unchanged.
+- UI-001: `TypingSurface` transient visual, focus, and completion timers could outlive an unmounted
+  surface. The component now owns and clears those timers; a focused unmount regression prevents
+  late React updates without changing typing results.

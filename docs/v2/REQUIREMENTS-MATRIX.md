@@ -22,7 +22,7 @@ an explicit disposition.
 | V2-G1-005  | Freeze history and game results                          | Release Blocker | shared/server literal goldens                           | integration suites                                 | Verified  |
 | V2-G1-006  | Freeze export and restore results                        | Release Blocker | canonical database projection                           | integration suites                                 | Verified  |
 | V2-G2-001  | Deterministic empty and 100k fixtures                    | Required        | fixture generator, manifest, hashes                     | integrity/FK/semantic validation                   | Verified  |
-| V2-G2-002  | Record raw minimal production baseline                   | Required        | `reports/performance/v1-baseline.json`                  | five-fragment assembly                             | Verified  |
+| V2-G2-002  | Record raw minimal production baseline                   | Required        | `reports/performance/v1-baseline.json`                  | five fragments; no machine absolute paths          | Verified  |
 | V2-G2-003  | Record empty startup and health                          | Required        | startup fragment                                        | 20 samples, median/p95                             | Verified  |
 | V2-G2-004  | Record Chromium/WebKit input hot path                    | Required        | P3 client fragment                                      | persisted events and latency                       | Verified  |
 | V2-G2-005  | Record 100k API, query, and child-loop work              | Required        | database/server fragments                               | all-time count and IPC source                      | Verified  |
@@ -34,7 +34,7 @@ an explicit disposition.
 | V2-G4-001  | Reuse existing visual evidence when UI is unchanged      | Required        | 30-image V1 matrix and rubric                           | final two-engine visual path passed                | Verified  |
 | V2-G4-002  | Perform a V2 visual redesign                             | Cancelled       | no confirmed UI defect                                  | not applicable                                     | Cancelled |
 | V2-G4-003  | Pass critical 1024/desktop Chromium/WebKit views         | Release Blocker | final complete Playwright replay                        | visual matrix and runtime-boundary pass            | Verified  |
-| V2-G4-004  | Preserve keyboard/focus/axe behavior                     | Release Blocker | final accessibility suites                              | both engines pass                                  | Verified  |
+| V2-G4-004  | Preserve keyboard/focus/axe behavior                     | Release Blocker | transient timers are owned by the typing surface        | unmount regression and both engines pass           | Verified  |
 | V2-G4-005  | Record a physical Safari manual run                      | Optional        | WebKit remains automated release evidence               | manual environment only                            | Optional  |
 | V2-G5-001  | Enforce all historic file-size limits                    | Cancelled       | legacy debt inventory                                   | no release value shown                             | Cancelled |
 | V2-G5-002  | Enforce all complexity and parameter limits              | Cancelled       | legacy debt inventory                                   | no release value shown                             | Cancelled |
@@ -45,7 +45,7 @@ an explicit disposition.
 | V2-G6-001  | Build a new STE checker platform                         | Cancelled       | no release dependency                                   | not applicable                                     | Cancelled |
 | V2-G6-002  | Keep the existing concise term/conformance record        | Optional        | `docs/ste/terms.yml` and conformance file               | document review                                    | Optional  |
 | V2-G6-003  | Complete official Issue 9 review                         | External        | `ASD-STE100-CONFORMANCE.md`                             | official local PDF required                        | Blocked   |
-| V2-G7-001  | Pass final non-browser release gate                      | Release Blocker | 60 Vitest files, 421 pass, 1 skip; builds pass          | Node.js 22.16.0 `npm run check`                    | Verified  |
+| V2-G7-001  | Pass final non-browser release gate                      | Release Blocker | 61 Vitest files, 424 pass, 1 skip; builds pass          | Node.js 22.16.0 `npm run check`                    | Verified  |
 | V2-G7-002  | Pass core Chromium and WebKit E2E                        | Release Blocker | 74 collected: 73 pass, 1 intentional skip               | full production replay, 7.1 minutes                | Verified  |
 | V2-G7-003  | Accept minimal performance evidence                      | Required        | Gate 2 baseline and 100k product smoke                  | no release-level blocker                           | Verified  |
 | V2-G7-004  | Pass clean one-click start                               | Release Blocker | offline isolated install/start/rebuild smoke            | port fallback, health, reuse, modes, shutdown      | Verified  |
@@ -63,9 +63,9 @@ remove, renumber, weaken, or silently close one of those rows.
 | V1 area                                         | V2 compatibility evidence                        | State                           |
 | ----------------------------------------------- | ------------------------------------------------ | ------------------------------- |
 | Foundation, launch, security, API               | clean install/start plus 46-route manifest       | Frozen                          |
-| SQLite, settings, events, export, restore       | canonical goldens and data-safety suites         | Frozen; final replay active     |
+| SQLite, settings, events, export, restore       | canonical goldens and data-safety suites         | Frozen; final replay passed     |
 | Keyboard, onboarding, Today, all training modes | shared/browser suites and literal events         | Frozen                          |
 | Tests, analytics, adaptive engine               | history/statistics/algorithm goldens             | Frozen                          |
 | Six-level game                                  | dual-engine flows and literal state trajectories | Frozen                          |
-| UI, accessibility, sound                        | visual/axe/audio/WebKit suites                   | Frozen; final replay active     |
+| UI, accessibility, sound                        | visual/axe/audio/WebKit suites                   | Frozen; final replay passed     |
 | Documents and research                          | V1 document set plus V2 decisions                | Official STE PDF review blocked |

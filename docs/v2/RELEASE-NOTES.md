@@ -22,6 +22,8 @@ history, or game result.
 - The 100k Today → five-micro-block completion → populated Analytics smoke passed without changing
   the source fixture.
 - The obsolete runtime API shadow source and unused Radix Tabs dependency were removed.
+- Typing-surface transient callbacks are cancelled on unmount, preventing late visual or
+  completion updates after the training view closes.
 - Contribution rules, Issue/PR templates, CI, changelog, and the Issue #1 branch workflow are stored
   in the repository.
 - GitHub Actions run 29904308912 passed the clean Linux install, formatting, lint, typecheck, tests,

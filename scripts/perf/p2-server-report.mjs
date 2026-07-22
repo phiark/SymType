@@ -1,4 +1,5 @@
 import { statSync } from "node:fs";
+import { basename } from "node:path";
 import Database from "better-sqlite3";
 
 import { captureEnvironmentMetadata, sha256File } from "./lib/index.js";
@@ -34,7 +35,7 @@ export function createServerFragment(fixture, description, measured, options) {
     }),
     fixture: {
       id: fixture.id,
-      path: fixture.path,
+      path: fixture.manifest?.relativePath ?? basename(fixture.path),
       byteSize: description.byteSize,
       sha256: description.sha256,
       manifest: fixture.manifest

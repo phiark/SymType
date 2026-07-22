@@ -125,6 +125,7 @@ export const TypingSurface = memo(
     const completingRef = useRef(false);
     const lastProgressReportRef = useRef({ attempts: -1, clockMs: 0 });
     const onPauseChangeRef = useRef(onPauseChange);
+    const transientTimeoutsRef = useRef(new Set<number>());
     const [results, setResults] = useState<GlyphResult[]>([]);
     const [position, setPosition] = useState(0);
     const [attempts, setAttempts] = useState(0);
@@ -136,6 +137,21 @@ export const TypingSurface = memo(
     const [pressedCode, setPressedCode] = useState<string>();
     const [lastWrong, setLastWrong] = useState(false);
     const [clockMs, setClockMs] = useState(() => performance.now());
+
+    const scheduleTransient = useCallback((callback: () => void, delayMs: number) => {
+      const timer = window.setTimeout(() => {
+        transientTimeoutsRef.current.delete(timer);
+        callback();
+      }, delayMs);
+      transientTimeoutsRef.current.add(timer);
+    }, []);
+
+    const clearTransients = useCallback(() => {
+      for (const timer of transientTimeoutsRef.current) window.clearTimeout(timer);
+      transientTimeoutsRef.current.clear();
+    }, []);
+
+    useEffect(() => clearTransients, [clearTransients]);
 
     const elapsedMs =
       startedAtRef.current === 0
@@ -197,8 +213,8 @@ export const TypingSurface = memo(
       onPauseChangeRef.current?.(false);
       setLastWrong(false);
       setClockMs(performance.now());
-      window.setTimeout(() => surfaceRef.current?.focus(), 0);
-    }, []);
+      scheduleTransient(() => surfaceRef.current?.focus(), 0);
+    }, [scheduleTransient]);
 
     useEffect(() => {
       onPauseChangeRef.current = onPauseChange;
@@ -214,12 +230,12 @@ export const TypingSurface = memo(
           pausedAtRef.current = 0;
           afterPauseRef.current = true;
           refocusRef.current = true;
-          window.setTimeout(() => surfaceRef.current?.focus(), 0);
+          scheduleTransient(() => surfaceRef.current?.focus(), 0);
         }
         setPaused(next);
         onPauseChange?.(next);
       },
-      [onPauseChange, paused]
+      [onPauseChange, paused, scheduleTransient]
     );
 
     useImperativeHandle(
@@ -408,7 +424,7 @@ export const TypingSurface = memo(
       afterPauseRef.current = false;
       refocusRef.current = false;
       setPressedCode(event.code);
-      window.setTimeout(() => setPressedCode(undefined), 70);
+      scheduleTransient(() => setPressedCode(undefined), 70);
       setAttempts(thisProgressAttempts);
       setCorrect(thisProgressCorrect);
       setErrors(thisProgressErrors);
@@ -427,7 +443,7 @@ export const TypingSurface = memo(
       if (thisProgressCorrect > 0 && thisProgressCorrect % 50 === 0) soundEngine.play("milestone");
 
       if (!isCorrect && settings.stopOnError) {
-        window.setTimeout(() => setLastWrong(false), 180);
+        scheduleTransient(() => setLastWrong(false), 180);
         return;
       }
 
@@ -448,7 +464,7 @@ export const TypingSurface = memo(
           peakWpm: Math.max(peakWpm, stableCurrent),
           elapsedMs: thisElapsed
         };
-        window.setTimeout(() => onComplete(finalProgress), 0);
+        scheduleTransient(() => onComplete(finalProgress), 0);
       }
     };
 
