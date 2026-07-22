@@ -1,0 +1,62 @@
+{
+  "name": "symtype",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12 <23 || >=24 <25",
+    "npm": ">=10"
+  },
+  "overrides": {
+    "esbuild": "0.28.1"
+  },
+  "scripts": {
+    "predev": "npm run build -w @symtype/shared && npm run build -w @symtype/content",
+    "dev": "concurrently -k -n shared,content,server,web -c blue,magenta,green,cyan \"npm run dev -w @symtype/shared\" \"npm run dev -w @symtype/content\" \"npm run dev -w @symtype/server\" \"npm run dev -w @symtype/web\"",
+    "start:local": "node scripts/start-local.mjs",
+    "start:local:no-open": "node scripts/start-local.mjs --no-open",
+    "start:local:open": "node scripts/start-local.mjs",
+    "migrate": "npm run migrate -w @symtype/server",
+    "build": "npm run build -w @symtype/shared && npm run build -w @symtype/content && npm run build -w @symtype/web && npm run build -w @symtype/server",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && npm run typecheck --workspaces --if-present",
+    "test": "vitest run --passWithNoTests",
+    "test:regression": "vitest run golden",
+    "test:coverage": "vitest run --coverage",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "test:webkit": "playwright test --project=webkit",
+    "perf:fixtures": "node --import tsx scripts/perf/create-fixtures.ts --sizes empty,100k",
+    "perf:startup": "node --import tsx scripts/perf/run-startup.mjs --samples 10",
+    "perf:bundle": "node --import tsx scripts/perf/run-bundle.mjs",
+    "perf:database": "node --import tsx scripts/perf/run-database.ts --sizes empty,100k",
+    "perf:server": "node --import tsx scripts/perf/run-server.mjs --fixture-id 100k --data-root .symtype-perf-data",
+    "perf:client": "node --import tsx scripts/perf/run-client.mjs --short --skip-build",
+    "perf:baseline:assemble": "node --import tsx scripts/perf/assemble-baseline.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:regression && npm run build"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^4.0.15",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "prettier": "^3.7.4",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vitest": "^4.0.15"
+  }
+}

@@ -1,0 +1,73 @@
+version: 1
+target: "ASD-STE100 Issue 9"
+terms:
+  - Term: SymType
+    Category: technical noun
+    Definition: The local typing training application in this repository.
+    "Approved form": SymType
+    Source: Project product contract
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: SQLite
+    Category: technical noun
+    Definition: The embedded database that stores authoritative local application data.
+    "Approved form": SQLite
+    Source: Project architecture
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: Fastify
+    Category: technical noun
+    Definition: The server framework for the local HTTP service.
+    "Approved form": Fastify
+    Source: Project architecture
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: WebKit
+    Category: technical noun
+    Definition: The browser engine used for automated Safari-compatible checks.
+    "Approved form": WebKit
+    Source: Project test contract
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: WPM
+    Category: abbreviation
+    Definition: Words per minute, calculated with five typed characters as one word.
+    "Approved form": WPM
+    Source: Project metric contract
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: IKI
+    Category: abbreviation
+    Definition: Inter-key interval between two valid key events.
+    "Approved form": IKI
+    Source: Project metric contract
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: API
+    Category: abbreviation
+    Definition: The local application programming interface under `/api/v1`.
+    "Approved form": API
+    Source: Project architecture
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: CSRF
+    Category: abbreviation
+    Definition: Cross-site request forgery protection for a modifying local request.
+    "Approved form": CSRF
+    Source: Project security contract
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: WAL
+    Category: abbreviation
+    Definition: The SQLite write-ahead log mode.
+    "Approved form": WAL
+    Source: Project data contract
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
+  - Term: E2E
+    Category: abbreviation
+    Definition: An end-to-end test of the built application and local service.
+    "Approved form": E2E
+    Source: Project test contract
+    Owner: SymType maintainers
+    "Review date": 2026-07-22
