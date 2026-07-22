@@ -106,15 +106,31 @@ unchanged V1 goldens, and a before/after result.
 ## V2-D011: Bootstrap the empty GitHub repository with an empty main commit
 
 **Date:** 2026-07-22
-**State:** Accepted, pending GitHub authentication
+**State:** Accepted and completed
 
 The target repository exists but has no refs. Create one empty repository-bootstrap commit on
 `main`, then create the tracking Issue and branch `chore/<issue>-symtype-2-release`. All product
 files enter through that Pull Request. This narrow initialization exception is required because an
 empty repository has no base branch for a PR.
 
+## V2-D012: Build internal workspace entry points during dependency installation
+
+**Date:** 2026-07-22
+**State:** Accepted
+
+The first clean GitHub Actions run failed in type-aware ESLint because `@symtype/shared` and
+`@symtype/content` intentionally publish their local workspace entry points from `dist`, while a
+clean checkout had not built those entry points. Existing local `dist` files masked the problem.
+
+Keep the production package exports unchanged. Add one root `build:packages` command and invoke it
+through npm's standard root `prepare` lifecycle after dependency installation. This makes clean
+`npm ci` produce the same internal type entry points as a normal local install without weakening
+ESLint, changing application behavior, or adding a separate CI-only path.
+
 ## Confirmed defects
 
 This section records only defects confirmed during V2 work. Add a regression test before a fix.
 
-No V2 defect is recorded yet.
+- CI-001: Clean-checkout lint could not resolve internal workspace package types before their
+  `dist` entry points existed. V2-D012 passed an isolated Node 22.16.0 offline `npm ci` followed by
+  the complete `npm run check`; PR CI remains the independent runner verification.

@@ -15,13 +15,15 @@
     "esbuild": "0.28.1"
   },
   "scripts": {
-    "predev": "npm run build -w @symtype/shared && npm run build -w @symtype/content",
+    "build:packages": "npm run build -w @symtype/shared && npm run build -w @symtype/content",
+    "prepare": "npm run build:packages",
+    "predev": "npm run build:packages",
     "dev": "concurrently -k -n shared,content,server,web -c blue,magenta,green,cyan \"npm run dev -w @symtype/shared\" \"npm run dev -w @symtype/content\" \"npm run dev -w @symtype/server\" \"npm run dev -w @symtype/web\"",
     "start:local": "node scripts/start-local.mjs",
     "start:local:no-open": "node scripts/start-local.mjs --no-open",
     "start:local:open": "node scripts/start-local.mjs",
     "migrate": "npm run migrate -w @symtype/server",
-    "build": "npm run build -w @symtype/shared && npm run build -w @symtype/content && npm run build -w @symtype/web && npm run build -w @symtype/server",
+    "build": "npm run build:packages && npm run build -w @symtype/web && npm run build -w @symtype/server",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -2,7 +2,7 @@
 
 **Last update:** 2026-07-22
 **Method:** Document-driven release convergence
-**Release state:** Gate 2 is done; release-candidate work is active
+**Release state:** Gate 2 is done; PR #2 CI remediation is active
 
 ## Purpose
 
@@ -32,9 +32,14 @@ confirmed release problem.
 - The final two-engine replay passed visual/reflow/axe, every training mode, formal tests, restore,
   service restart plus fresh-browser SQLite history, runtime boundaries, and all game paths without
   a release-level console error.
-- The target GitHub repository now has the file-free bootstrap commit `95aa3e5` on `main`. Issue #1
-  and local branch `chore/1-symtype-2-release` exist. The GitHub connector and Git push work; the
-  separate `gh` CLI token remains invalid.
+- The target GitHub repository has the file-free bootstrap commit `95aa3e5` on `main`, Issue #1,
+  branch `chore/1-symtype-2-release`, commit `cd66491`, and ready-for-review PR #2.
+- PR CI run 29903653128 exposed one clean-checkout infrastructure defect: type-aware lint ran
+  before internal workspace `dist` entry points existed. V2-D012 records the bounded fix; no
+  product logic or lint rule changes.
+- An isolated source copy without `.git`, `node_modules`, or any `dist` passed Node 22.16.0 offline
+  `npm ci`, automatically ran `prepare`, then passed the complete 421-test, 22-golden, four-build
+  `npm run check`.
 - The official ASD-STE100 Issue 9 PDF is unavailable. The normative review remains externally
   blocked and does not block independent product work.
 
@@ -44,7 +49,7 @@ confirmed release problem.
 | --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Blocker | Final Node.js 22 `npm run check`                                               | The current candidate cannot be published with an unverified final tree.                                               |
 | Release Blocker | Core Chromium and WebKit acceptance                                            | Recheck startup, training completion, persistence, analytics, restore, and game after release edits.                   |
-| Release Blocker | GitHub traceability and CI                                                     | Commit and push the accepted branch, open the Issue #1 PR, then require CI and review before merge.                    |
+| Release Blocker | GitHub CI and independent review                                               | Repair clean-checkout workspace type preparation, rerun CI, then require independent approval before merge.            |
 | Required        | 100k product smoke                                                             | Verify Today, training completion, and common Analytics behavior against the populated fixture.                        |
 | Required        | Data-safety release replay                                                     | Recheck event idempotency, migration, export, restore, and database integrity on copies.                               |
 | Required        | Repository workflow files                                                      | Persist contribution, Issue, PR, CI, version, changelog, and release rules using real commands.                        |
@@ -118,9 +123,8 @@ for a single-user local application. Record it as an Optional future target if r
 
 ## Active release work
 
-1. Persist the repository development workflow, CI, version, changelog, and release metadata.
-2. Reconcile the matrix, commit/push the traceable Issue #1 branch, open its PR, and wait for CI
-   and required review before merging.
+1. Verify V2-D012 in an isolated clean checkout and push the focused CI repair to PR #2.
+2. Wait for PR CI and an independent review before squash merge.
 
 ## GitHub bootstrap decision
 
@@ -135,12 +139,13 @@ through that PR; no product file was committed directly to `main`.
 | ------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------ |
 | Local product tree has no older Git baseline            | Literal goldens, raw baseline, final PR diff                              | Controlled               |
 | Active Homebrew Node resolves to 25                     | Use explicit Node 22.16.0 PATH in release commands                        | Controlled               |
-| `gh` CLI token is invalid                               | Use Git credential for push and GitHub connector for Issue/PR metadata    | Blocks settings API only |
+| `gh` CLI token is invalid                               | Use Git credential for push and authenticated connector for PR/CI data    | Blocks settings API only |
+| Clean CI lacked workspace `dist` type entry points      | Root npm `prepare`; isolated clean install and check pass                 | PR rerun pending         |
 | Official STE PDF is absent                              | Do not use unofficial summaries; request only the local official PDF path | Externally blocked       |
 | 100k all-time stats blocks the local event loop briefly | Keep observable; optimize only after real user evidence                   | Accepted                 |
 
 ## Outcomes
 
-Gates 0, 1, and 2 are complete. No performance architecture change is justified. The active work is
-now the bounded release candidate and GitHub delivery flow; it must not reopen Optional performance
-or maintenance-platform work.
+Gates 0, 1, and 2 are complete. No performance architecture change is justified. PR #2 contains the
+bounded release candidate. Active work is limited to the clean-checkout CI repair, CI evidence, and
+independent review; it must not reopen Optional performance or maintenance-platform work.

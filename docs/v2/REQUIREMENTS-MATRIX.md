@@ -51,8 +51,8 @@ Pending rows.
 | V2-G7-004  | Pass clean one-click start                               | Release Blocker | offline isolated install/start/rebuild smoke            | port fallback, health, reuse, modes, shutdown      | Verified    |
 | V2-G7-005  | Complete independent release review                      | Release Blocker | matrix and release notes                                | no unexplained open blocker                        | In progress |
 | V2-GIT-001 | Persist Issue/branch/commit/PR workflow                  | Required        | AGENTS, CONTRIBUTING, templates                         | Prettier and YAML parse                            | Verified    |
-| V2-GIT-002 | Run applicable CI on push and PR                         | Release Blocker | `.github/workflows/ci.yml`                              | GitHub Actions                                     | In progress |
-| V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR | Release Blocker | Issue #1 and `chore/1-symtype-2-release`                | commit, push, and PR remain                        | In progress |
+| V2-GIT-002 | Run applicable CI on push and PR                         | Release Blocker | workflow plus V2-D012 clean-install preparation         | isolated check passed; PR #2 rerun pending         | In progress |
+| V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR | Release Blocker | Issue #1, commit `cd66491`, branch, and PR #2           | remote SHA and PR metadata verified                | Verified    |
 | V2-GIT-004 | Protect `main` and require review/checks                 | Required        | repository settings                                     | admin/API verification                             | Blocked     |
 
 ## Incorporated V1 function contract
