@@ -48,8 +48,10 @@ See `docs/v2/PERFORMANCE-RESULTS.md` for the complete bounded evidence and hones
 
 ## External acceptance still required before merge/tag
 
-- Complete GitHub sudo-mode confirmation and save the prepared `main` protection rule.
 - Obtain one approval from a distinct GitHub reviewer; the author cannot approve the author's PR.
+
+The `main` protection rule is active and requires that approval, the current Node 22 check, an
+up-to-date branch, resolved review conversations, and linear history without administrator bypass.
 
 The official ASD-STE100 Issue 9 PDF is unavailable. Formal normative STE review remains externally
 Blocked; the minimum user action is to provide the official PDF as a readable local file path. The

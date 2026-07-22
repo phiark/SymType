@@ -2,7 +2,7 @@
 
 **Last update:** 2026-07-22
 **Method:** Document-driven release convergence
-**Release state:** PR #2 CI is green; independent review and settings authentication are blocked
+**Release state:** PR #2 CI and `main` protection are green; independent approval is blocked
 
 ## Purpose
 
@@ -44,9 +44,10 @@ confirmed release problem.
   `npm run check`.
 - GitHub Actions run 29904308912 passed install, formatting, lint, typecheck, tests, and build for
   the clean-checkout repair commit `ed1aae9`.
-- Repository settings now allow only Squash Merge and automatically delete merged branches. The
-  complete `main` protection rule is prepared, but GitHub requires the owner to complete sudo-mode
-  account confirmation before the rule can be saved.
+- Repository settings allow only Squash Merge and automatically delete merged branches. The saved
+  `main` rule requires a current PR, one independent approval of the latest push, the Node 22 check,
+  current branches, resolved conversations, linear history, and no administrator bypass; force
+  pushes and deletion remain disabled.
 - The official ASD-STE100 Issue 9 PDF is unavailable. The normative review remains externally
   blocked and does not block independent product work.
 
@@ -56,7 +57,7 @@ confirmed release problem.
 | --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Blocker | Final Node.js 22 `npm run check`                                               | The current candidate cannot be published with an unverified final tree.                                               |
 | Release Blocker | Core Chromium and WebKit acceptance                                            | Recheck startup, training completion, persistence, analytics, restore, and game after release edits.                   |
-| Release Blocker | GitHub CI and independent review                                               | Repair clean-checkout workspace type preparation, rerun CI, then require independent approval before merge.            |
+| Release Blocker | GitHub CI and independent review                                               | Final-head CI is green; require independent approval before merge.                                                     |
 | Required        | 100k product smoke                                                             | Verify Today, training completion, and common Analytics behavior against the populated fixture.                        |
 | Required        | Data-safety release replay                                                     | Recheck event idempotency, migration, export, restore, and database integrity on copies.                               |
 | Required        | Repository workflow files                                                      | Persist contribution, Issue, PR, CI, version, changelog, and release rules using real commands.                        |
@@ -80,7 +81,7 @@ confirmed release problem.
 | 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Done      | Final Chromium/WebKit review passed           |
 | 5. Converge code             | Remove confirmed dead source/dependency only                | Done      | Bounded cleanup and release checks passed     |
 | 6. Conform documents         | Official Issue 9 review                                     | Blocked   | User must provide the official PDF local path |
-| 7. Accept and publish        | Check, core E2E, data safety, CI, PR review                 | Blocked   | Independent review and settings auth remain   |
+| 7. Accept and publish        | Check, core E2E, data safety, CI, PR review                 | Blocked   | Distinct GitHub approval remains              |
 
 ## Gate 0 and Gate 1 evidence
 
@@ -131,9 +132,7 @@ for a single-user local application. Record it as an Optional future target if r
 
 ## Active release work
 
-1. The repository owner completes GitHub sudo-mode confirmation and saves the prepared `main`
-   protection rule.
-2. A distinct GitHub reviewer approves PR #2. Recheck the final head CI, then squash merge.
+1. A distinct GitHub reviewer approves PR #2. Recheck the final head CI, then squash merge.
 
 ## GitHub bootstrap decision
 
@@ -149,7 +148,7 @@ through that PR; no product file was committed directly to `main`.
 | Local product tree has no older Git baseline            | Literal goldens, raw baseline, final PR diff                              | Controlled         |
 | Active Homebrew Node resolves to 25                     | Use explicit Node 22.16.0 PATH in release commands                        | Controlled         |
 | `gh` CLI token is invalid                               | Use Git credential, connector, and authenticated Chrome where available   | Controlled         |
-| Branch-rule save requires GitHub sudo mode              | Owner completes the open account-confirmation page                        | Externally blocked |
+| Branch-rule save requires GitHub sudo mode              | Owner confirmed access; the complete `main` rule is saved                 | Resolved           |
 | Clean CI lacked workspace `dist` type entry points      | Root npm `prepare`; isolated and GitHub checks pass                       | Resolved           |
 | Official STE PDF is absent                              | Do not use unofficial summaries; request only the local official PDF path | Externally blocked |
 | 100k all-time stats blocks the local event loop briefly | Keep observable; optimize only after real user evidence                   | Accepted           |
@@ -157,6 +156,6 @@ through that PR; no product file was committed directly to `main`.
 ## Outcomes
 
 Gates 0, 1, 2, 4, and 5 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
-blocked. PR #2 contains the bounded release candidate and its CI is green. Gate 7 now waits only for
-GitHub account confirmation of the prepared protection rule and an independent reviewer; it must
-not reopen Optional performance or maintenance-platform work.
+blocked. PR #2 contains the bounded release candidate, its CI is green, and `main` protection is
+active. Gate 7 now waits only for an independent reviewer; it must not reopen Optional performance
+or maintenance-platform work.
