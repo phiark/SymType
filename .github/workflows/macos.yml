@@ -2,6 +2,8 @@ name: macOS package
 
 on:
   push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -25,6 +27,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify release commit identity
+        env:
+          EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
 
       - name: Require Apple Silicon runner
         run: test "$(uname -m)" = "arm64"
