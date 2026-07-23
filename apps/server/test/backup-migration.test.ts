@@ -1,7 +1,18 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -262,7 +273,7 @@ describe("forward-only schema migration safety", () => {
     }
   });
 
-  test("upgrades a version-one database through the latest migration without losing history", () => {
+  test("upgrades a version-one database through the latest migration without losing history", async () => {
     const dataDir = mkdtempSync(join(tmpdir(), "symtype-migration-upgrade-"));
     directories.push(dataDir);
     const config = configFor(dataDir);
@@ -291,6 +302,46 @@ describe("forward-only schema migration safety", () => {
       errorAnalysis: { validTimingSamples: 0 }
     });
     expect(database.integrityCheck()).toEqual({ ok: true, detail: "ok" });
+    const migrationBackup = database.db
+      .prepare(
+        `SELECT path, reason, schema_version, checksum
+         FROM backups WHERE reason = 'pre-migration-v1-to-v10'`
+      )
+      .get() as {
+      path: string;
+      reason: string;
+      schema_version: number;
+      checksum: string;
+    };
+    expect(migrationBackup).toMatchObject({
+      reason: "pre-migration-v1-to-v10",
+      schema_version: 1
+    });
+    expect(existsSync(migrationBackup.path)).toBe(true);
+    expect(checksum(migrationBackup.path)).toBe(migrationBackup.checksum);
+    if (process.platform !== "win32") {
+      expect(statSync(migrationBackup.path).mode & 0o777).toBe(0o600);
+    }
+    const snapshot = new Database(migrationBackup.path, {
+      readonly: true,
+      fileMustExist: true
+    });
+    expect(snapshot.pragma("quick_check")).toEqual([{ quick_check: "ok" }]);
+    expect(snapshot.pragma("foreign_key_check")).toEqual([]);
+    expect(snapshot.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual(
+      {
+        version: 1
+      }
+    );
+    expect(
+      snapshot.prepare("SELECT display_name FROM profiles WHERE id = 'local-profile'").get()
+    ).toEqual({ display_name: "Preserved typist" });
+    expect(
+      (snapshot.pragma("table_info(sessions)") as { name: string }[]).some(
+        ({ name }) => name === "include_in_model"
+      )
+    ).toBe(false);
+    snapshot.close();
     const sessionColumns = database.db.pragma("table_info(sessions)") as { name: string }[];
     expect(sessionColumns.map(({ name }) => name)).toEqual(
       expect.arrayContaining([
@@ -310,6 +361,53 @@ describe("forward-only schema migration safety", () => {
         "idx_keystrokes_block_sequence"
       ])
     );
+    await database.ensureAutomaticBackup();
+    expect(
+      database.db.prepare("SELECT path FROM backups WHERE reason = ?").get(migrationBackup.reason)
+    ).toEqual({ path: migrationBackup.path });
+  });
+
+  test("the standalone migration entry point leaves a verified pre-migration snapshot", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "symtype-standalone-migration-"));
+    directories.push(dataDir);
+    const config = configFor(dataDir);
+    createHistoricalDatabase(config.databasePath, 7);
+    const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
+    const migrateEntry = fileURLToPath(new URL("../src/migrate.ts", import.meta.url));
+
+    const result = spawnSync(process.execPath, ["--import", "tsx", migrateEntry], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        NODE_ENV: "test",
+        SYMTYPE_DATA_DIR: dataDir
+      }
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("schema v10");
+    const migrated = new Database(config.databasePath, { readonly: true, fileMustExist: true });
+    const record = migrated
+      .prepare(
+        `SELECT path, schema_version, checksum FROM backups
+         WHERE reason = 'pre-migration-v7-to-v10'`
+      )
+      .get() as { path: string; schema_version: number; checksum: string };
+    expect(record.schema_version).toBe(7);
+    expect(checksum(record.path)).toBe(record.checksum);
+    migrated.close();
+    const snapshot = new Database(record.path, { readonly: true, fileMustExist: true });
+    expect(snapshot.pragma("quick_check")).toEqual([{ quick_check: "ok" }]);
+    expect(snapshot.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual(
+      {
+        version: 7
+      }
+    );
+    expect(
+      snapshot.prepare("SELECT display_name FROM profiles WHERE id = 'local-profile'").get()
+    ).toEqual({ display_name: "Preserved typist" });
+    snapshot.close();
   });
 
   test("version ten backfills dual accuracy for tests left at v5 defaults", () => {
@@ -346,6 +444,86 @@ describe("forward-only schema migration safety", () => {
     expect(database.getSchemaVersion()).toBe(10);
   });
 
+  test("refuses to migrate a source that fails pre-backup integrity checks", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "symtype-migration-source-integrity-"));
+    directories.push(dataDir);
+    const config = configFor(dataDir);
+    createHistoricalDatabase(config.databasePath, 7);
+    const fixture = new Database(config.databasePath);
+    fixture.pragma("foreign_keys = OFF");
+    fixture
+      .prepare("UPDATE sessions SET profile_id = 'missing-profile' WHERE id = 'historical-session'")
+      .run();
+    fixture.close();
+
+    expect(() => new SymTypeDatabase(config)).toThrow(
+      /integrity check failed before migration backup.*foreign-key/u
+    );
+
+    const preserved = new Database(config.databasePath, { readonly: true, fileMustExist: true });
+    expect(
+      preserved.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()
+    ).toEqual({ version: 7 });
+    expect(preserved.prepare("SELECT COUNT(*) AS count FROM backups").get()).toEqual({ count: 0 });
+    expect(
+      preserved.prepare("SELECT profile_id FROM sessions WHERE id = 'historical-session'").get()
+    ).toEqual({ profile_id: "missing-profile" });
+    preserved.close();
+  });
+
+  test("keeps retryable metadata when stale-file pruning cannot unlink", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "symtype-migration-prune-failure-"));
+    directories.push(dataDir);
+    const config = configFor(dataDir);
+    createHistoricalDatabase(config.databasePath, 7);
+    const backupDirectory = join(dataDir, "backups");
+    const staleDirectory = join(backupDirectory, "stale-pre-migration.sqlite3");
+    mkdirSync(staleDirectory, { recursive: true });
+    const fixture = new Database(config.databasePath);
+    fixture
+      .prepare(
+        `INSERT INTO backups
+         (id, path, reason, byte_size, schema_version, checksum, created_at)
+         VALUES(?, ?, 'pre-migration-v7-to-v10', 0, 7, 'stale', ?)`
+      )
+      .run("stale-prune-record", staleDirectory, "2024-01-01T00:00:00.000Z");
+    fixture.close();
+
+    const database = new SymTypeDatabase(config);
+    databases.push(database);
+
+    expect(database.getSchemaVersion()).toBe(10);
+    const records = database.db
+      .prepare(
+        `SELECT id, path, schema_version, checksum FROM backups
+         WHERE reason = 'pre-migration-v7-to-v10' ORDER BY created_at DESC`
+      )
+      .all() as { id: string; path: string; schema_version: number; checksum: string }[];
+    expect(records).toHaveLength(2);
+    expect(records).toContainEqual(
+      expect.objectContaining({ id: "stale-prune-record", path: staleDirectory })
+    );
+    expect(existsSync(staleDirectory)).toBe(true);
+    const required = records.find((record) => record.id !== "stale-prune-record");
+    expect(required).toBeDefined();
+    if (!required) throw new Error("Expected the verified pre-migration snapshot");
+    expect(required.schema_version).toBe(7);
+    expect(existsSync(required.path)).toBe(true);
+    expect(checksum(required.path)).toBe(required.checksum);
+
+    await database.ensureAutomaticBackup();
+    expect(
+      database.db.prepare("SELECT path FROM backups WHERE id = ?").get("stale-prune-record")
+    ).toEqual({ path: staleDirectory });
+    expect(existsSync(staleDirectory)).toBe(true);
+
+    database.close();
+    databases.pop();
+    const reopened = new SymTypeDatabase(config);
+    databases.push(reopened);
+    expect(reopened.getSchemaVersion()).toBe(10);
+  });
+
   test("surfaces a migration failure atomically without rebuilding or deleting history", () => {
     const dataDir = mkdtempSync(join(tmpdir(), "symtype-migration-failure-"));
     directories.push(dataDir);
@@ -357,7 +535,9 @@ describe("forward-only schema migration safety", () => {
     );
     fixture.close();
 
-    expect(() => new SymTypeDatabase(config)).toThrow(/idx_micro_blocks_type_lesson/u);
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      expect(() => new SymTypeDatabase(config)).toThrow(/idx_micro_blocks_type_lesson/u);
+    }
 
     const preserved = new Database(config.databasePath, { readonly: true, fileMustExist: true });
     expect(
@@ -371,6 +551,34 @@ describe("forward-only schema migration safety", () => {
     expect(
       preserved.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()
     ).toEqual({ version: 7 });
+    const migrationBackups = preserved
+      .prepare(
+        `SELECT path, schema_version, checksum FROM backups
+         WHERE reason = 'pre-migration-v7-to-v10'`
+      )
+      .all() as { path: string; schema_version: number; checksum: string }[];
+    expect(migrationBackups).toHaveLength(2);
+    expect(
+      readdirSync(join(dataDir, "backups")).filter((filename) => filename.endsWith(".sqlite3"))
+    ).toHaveLength(2);
+    for (const migrationBackup of migrationBackups) {
+      expect(migrationBackup.schema_version).toBe(7);
+      expect(checksum(migrationBackup.path)).toBe(migrationBackup.checksum);
+      const snapshot = new Database(migrationBackup.path, {
+        readonly: true,
+        fileMustExist: true
+      });
+      expect(snapshot.pragma("quick_check")).toEqual([{ quick_check: "ok" }]);
+      expect(
+        snapshot.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()
+      ).toEqual({
+        version: 7
+      });
+      expect(
+        snapshot.prepare("SELECT display_name FROM profiles WHERE id = 'local-profile'").get()
+      ).toEqual({ display_name: "Preserved typist" });
+      snapshot.close();
+    }
     expect(
       preserved
         .prepare(

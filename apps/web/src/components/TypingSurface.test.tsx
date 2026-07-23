@@ -3,12 +3,12 @@
 import "@testing-library/jest-dom/vitest";
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { Profiler, useCallback, useState, type ProfilerOnRenderCallback } from "react";
+import { createRef, Profiler, useCallback, useState, type ProfilerOnRenderCallback } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { testSettings } from "../test/fixtures";
 import type { AppSettings, StoredEvent } from "../types";
-import { TypingSurface, type TypingProgress } from "./TypingSurface";
+import { TypingSurface, type TypingProgress, type TypingSurfaceHandle } from "./TypingSurface";
 
 afterEach(() => {
   cleanup();
@@ -19,6 +19,7 @@ afterEach(() => {
 function renderSurface(
   target = "ab",
   options: {
+    active?: boolean;
     settings?: Partial<AppSettings>;
     onProgress?: (progress: TypingProgress) => void;
     onEvent?: (event: Omit<StoredEvent, "sequence">) => boolean | void;
@@ -30,22 +31,27 @@ function renderSurface(
   );
   const onComplete = vi.fn();
   const onProgress = options.onProgress ?? vi.fn<(progress: TypingProgress) => void>();
-  render(
+  const ref = createRef<TypingSurfaceHandle>();
+  const surface = (active: boolean) => (
     <TypingSurface
+      ref={ref}
       target={target}
       mode="smart"
       settings={{ ...testSettings, keyboardVisible: false, ...options.settings }}
-      active
+      active={active}
       onEvent={onEvent}
       onComplete={onComplete}
       onProgress={onProgress}
       {...(options.onPauseChange ? { onPauseChange: options.onPauseChange } : {})}
     />
   );
+  const view = render(surface(options.active ?? true));
   return {
     surface: screen.getByRole("textbox", { name: "打字练习输入区" }),
     onEvent,
-    onComplete
+    onComplete,
+    ref,
+    rerenderActive: (active: boolean) => view.rerender(surface(active))
   };
 }
 
@@ -180,11 +186,94 @@ describe("TypingSurface keyboard event boundary", () => {
     expect(screen.getByText("2/3")).toBeVisible();
   });
 
+  it("exposes a trailing Backspace checkpoint until a correcting key is accepted", async () => {
+    let readCheckpoint = (): number | null | undefined => undefined;
+    let checkpointAfterAcceptedCallback: number | null | undefined;
+    const { surface, ref } = renderSurface("ab", {
+      onEvent: (event) => {
+        if (event.isCorrection) {
+          queueMicrotask(() => {
+            checkpointAfterAcceptedCallback = readCheckpoint();
+          });
+        }
+      }
+    });
+    readCheckpoint = () => ref.current?.getCorrectionPosition();
+
+    fireEvent.keyDown(surface, { key: "x", code: "KeyX" });
+    fireEvent.keyDown(surface, { key: "Backspace", code: "Backspace" });
+    expect(ref.current?.getCorrectionPosition()).toBe(0);
+
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    await act(() => Promise.resolve());
+    expect(ref.current?.getCorrectionPosition()).toBeNull();
+    expect(checkpointAfterAcceptedCallback).toBeNull();
+    const progress = ref.current?.getProgress();
+    expect(progress).toMatchObject({ errors: 1 });
+    expect(progress?.rawWpm).toBeGreaterThan(0);
+    expect(progress?.netWpm).toBe(progress?.rawWpm);
+  });
+
+  it("rejects Backspace and character input after completion is latched", () => {
+    const { surface, onEvent, ref } = renderSurface("a");
+
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    expect(screen.getByText("1/1")).toBeVisible();
+
+    fireEvent.keyDown(surface, { key: "Backspace", code: "Backspace" });
+    fireEvent.keyDown(surface, { key: "x", code: "KeyX" });
+
+    expect(screen.getByText("1/1")).toBeVisible();
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(ref.current?.getCorrectionPosition()).toBeNull();
+    expect(screen.getByRole("button", { name: "重开当前微组" })).toBeDisabled();
+  });
+
+  it("keeps a trailing correction checkpoint when controls become inactive during save", () => {
+    const { surface, ref, rerenderActive } = renderSurface("ab");
+
+    fireEvent.keyDown(surface, { key: "x", code: "KeyX" });
+    fireEvent.keyDown(surface, { key: "Backspace", code: "Backspace" });
+    expect(ref.current?.getCorrectionPosition()).toBe(0);
+
+    rerenderActive(false);
+    const restart = screen.getByRole("button", { name: "重开当前微组" });
+    expect(restart).toBeDisabled();
+    fireEvent.click(restart);
+
+    expect(ref.current?.getCorrectionPosition()).toBe(0);
+    expect(ref.current?.getProgress()).toMatchObject({ position: 0, attempts: 1 });
+  });
+
+  it("persists a manual restart until save or the first replacement key", () => {
+    const { surface, onEvent, ref } = renderSurface("ab");
+
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    const restart = screen.getByRole("button", { name: "重开当前微组" });
+    fireEvent.click(restart);
+    fireEvent.click(restart);
+
+    expect(ref.current?.getCorrectionPosition()).toBe(0);
+    expect(ref.current?.getProgress()).toMatchObject({ position: 0, attempts: 0 });
+
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+
+    expect(onEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        textPosition: 0,
+        isCorrection: true,
+        backspaceCount: 1
+      })
+    );
+    expect(ref.current?.getCorrectionPosition()).toBeNull();
+  });
+
   it("keeps the caret on an error when stop-on-error is enabled", () => {
-    const { surface, onEvent } = renderSurface("ab", { settings: { stopOnError: true } });
+    const { surface, onEvent, ref } = renderSurface("ab", { settings: { stopOnError: true } });
 
     fireEvent.keyDown(surface, { key: "x", code: "KeyX" });
     expect(screen.getByText("0/2")).toBeVisible();
+    expect(ref.current?.getProgress()).toMatchObject({ errors: 1, netWpm: 0 });
     fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
 
     expect(screen.getByText("1/2")).toBeVisible();
@@ -195,6 +284,7 @@ describe("TypingSurface keyboard event boundary", () => {
       isAfterError: true,
       textPosition: 0
     });
+    expect(ref.current?.getProgress().netWpm).toBe(ref.current?.getProgress().rawWpm);
   });
 
   it("applies disabled and word Backspace policies without inventing events", () => {

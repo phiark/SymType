@@ -224,7 +224,14 @@ test.describe.serial("today intent, input boundaries, audio, and navigation", ()
       await surface.focus();
 
       if (!ignoredBoundaryChecked) {
-        await page.getByRole("button", { name: "重开当前微组" }).focus();
+        // The new target schedules its intentional typing-surface autofocus on
+        // the next task. Let that settle before proving toolbar focus isolates
+        // ordinary keyboard input, otherwise WebKit can race the pending focus.
+        await expect(page.getByText(`0/${block.block.target_text.length}`)).toBeVisible();
+        await page.waitForTimeout(25);
+        const restartButton = page.getByRole("button", { name: "重开当前微组" });
+        await restartButton.focus();
+        await expect(restartButton).toBeFocused();
         await page.keyboard.type("qwerty123");
         await expect(page.getByText(`0/${block.block.target_text.length}`)).toBeVisible();
         await surface.focus();

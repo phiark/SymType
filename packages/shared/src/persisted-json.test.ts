@@ -169,6 +169,23 @@ describe("persisted JSON schemas", () => {
       }
     });
     expect(
+      persistedSessionSummarySchema.parse({
+        ...legacySummary,
+        metricVersion: 1,
+        uncorrectedErrors: 2
+      })
+    ).toMatchObject({ metricVersion: 1, uncorrectedErrors: 2 });
+    expect(
+      persistedSessionSummarySchema.safeParse({ ...legacySummary, metricVersion: 1 }).success
+    ).toBe(false);
+    expect(
+      persistedSessionSummarySchema.safeParse({
+        ...legacySummary,
+        metricVersion: 1,
+        uncorrectedErrors: 21
+      }).success
+    ).toBe(false);
+    expect(
       persistedSessionSummarySchema.safeParse({
         ...legacySummary,
         errorAnalysis: { version: 1 }

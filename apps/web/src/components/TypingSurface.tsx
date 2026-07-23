@@ -8,7 +8,13 @@ import {
   useRef,
   useState
 } from "react";
-import { getKeyByCharacter, SYMMETRIC_LAYOUT, type KeyDefinition } from "@symtype/shared";
+import {
+  getKeyByCharacter,
+  netWpm as calculateNetWpm,
+  rawWpm as calculateRawWpm,
+  SYMMETRIC_LAYOUT,
+  type KeyDefinition
+} from "@symtype/shared";
 import { Pause, Play, RotateCcw } from "lucide-react";
 
 import { soundEngine } from "../audio";
@@ -34,6 +40,7 @@ export interface TypingSurfaceHandle {
   resume: () => void;
   reset: () => void;
   getProgress: () => TypingProgress;
+  getCorrectionPosition: () => number | null;
 }
 
 interface TypingSurfaceProps {
@@ -119,6 +126,7 @@ export const TypingSurface = memo(
     const rollingIkiRef = useRef<number[]>([]);
     const pressedShiftRef = useRef(new Set<string>());
     const backspaceCountRef = useRef(0);
+    const correctionPositionRef = useRef<number | null>(null);
     const afterErrorRef = useRef(false);
     const afterPauseRef = useRef(false);
     const refocusRef = useRef(true);
@@ -127,6 +135,7 @@ export const TypingSurface = memo(
     const onPauseChangeRef = useRef(onPauseChange);
     const transientTimeoutsRef = useRef(new Set<number>());
     const [results, setResults] = useState<GlyphResult[]>([]);
+    const [pendingStoppedError, setPendingStoppedError] = useState(false);
     const [position, setPosition] = useState(0);
     const [attempts, setAttempts] = useState(0);
     const [correct, setCorrect] = useState(0);
@@ -160,9 +169,11 @@ export const TypingSurface = memo(
             0,
             (paused ? pausedAtRef.current : clockMs) - startedAtRef.current - pausedTotalRef.current
           );
-    const minutes = Math.max(elapsedMs / 60_000, 1 / 1200);
-    const rawWpm = attempts / 5 / minutes;
-    const netWpm = Math.max(0, rawWpm - errors / minutes);
+    const metricDurationMs = attempts === 0 ? 0 : Math.max(50, elapsedMs);
+    const submittedErrors = results.filter((result) => !result.correct).length;
+    const uncorrectedErrors = submittedErrors + Number(pendingStoppedError);
+    const rawWpm = calculateRawWpm(attempts, metricDurationMs);
+    const netWpm = calculateNetWpm(attempts, uncorrectedErrors, metricDurationMs);
     const accuracy = attempts === 0 ? 1 : correct / attempts;
     const progress: TypingProgress = useMemo(
       () => ({
@@ -198,11 +209,13 @@ export const TypingSurface = memo(
       lastKeyAtRef.current = null;
       rollingIkiRef.current = [];
       backspaceCountRef.current = 0;
+      correctionPositionRef.current = null;
       afterErrorRef.current = false;
       afterPauseRef.current = false;
       refocusRef.current = true;
       completingRef.current = false;
       setResults([]);
+      setPendingStoppedError(false);
       setPosition(0);
       setAttempts(0);
       setCorrect(0);
@@ -215,6 +228,15 @@ export const TypingSurface = memo(
       setClockMs(performance.now());
       scheduleTransient(() => surfaceRef.current?.focus(), 0);
     }, [scheduleTransient]);
+
+    const restartCurrentBlock = useCallback(() => {
+      const needsPersistedCorrection = attempts > 0 || correctionPositionRef.current !== null;
+      reset();
+      if (needsPersistedCorrection) {
+        correctionPositionRef.current = 0;
+        backspaceCountRef.current = 1;
+      }
+    }, [attempts, reset]);
 
     useEffect(() => {
       onPauseChangeRef.current = onPauseChange;
@@ -245,7 +267,8 @@ export const TypingSurface = memo(
         pause: () => setPauseState(true),
         resume: () => setPauseState(false),
         reset,
-        getProgress: () => progress
+        getProgress: () => progress,
+        getCorrectionPosition: () => correctionPositionRef.current
       }),
       [progress, reset, setPauseState]
     );
@@ -318,6 +341,7 @@ export const TypingSurface = memo(
       if (nextKey.hand === "right") return "ShiftLeft" as const;
       return undefined;
     }, [nextKey, position, target]);
+    const controlsEnabled = active && !completingRef.current;
 
     const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (!active) return;
@@ -340,6 +364,12 @@ export const TypingSurface = memo(
       if (event.nativeEvent.isComposing || event.key === "Process" || event.keyCode === 229) return;
       if (event.repeat) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const isCharacterInput =
+        event.key.length === 1 || event.key === "Enter" || event.key === "Tab";
+      if (completingRef.current) {
+        if (event.key === "Backspace" || isCharacterInput) event.preventDefault();
+        return;
+      }
       if (event.key === "Backspace") {
         event.preventDefault();
         if (settings.backspaceMode === "disabled" || position === 0) return;
@@ -349,14 +379,15 @@ export const TypingSurface = memo(
             ? Math.max(1, target.slice(0, position).match(/\S+\s*$/u)?.[0].length ?? 1)
             : 1;
         const nextPosition = Math.max(0, position - amount);
+        correctionPositionRef.current = nextPosition;
+        setPendingStoppedError(false);
         setPosition(nextPosition);
         setResults((current) => current.slice(0, nextPosition));
         refocusRef.current = false;
         return;
       }
-      if (event.key.length !== 1 && event.key !== "Enter" && event.key !== "Tab") return;
+      if (!isCharacterInput) return;
       event.preventDefault();
-      if (completingRef.current) return;
 
       const expected = target[position];
       if (expected === undefined) return;
@@ -375,9 +406,9 @@ export const TypingSurface = memo(
       const thisProgressCorrect = correct + Number(isCorrect);
       const thisProgressErrors = errors + Number(!isCorrect);
       const thisElapsed = Math.max(50, clientTime - startedAtRef.current - pausedTotalRef.current);
-      const thisMinutes = thisElapsed / 60_000;
-      const thisRaw = thisProgressAttempts / 5 / thisMinutes;
-      const thisNet = Math.max(0, thisRaw - thisProgressErrors / thisMinutes);
+      const thisUncorrectedErrors = submittedErrors + Number(!isCorrect);
+      const thisRaw = calculateRawWpm(thisProgressAttempts, thisElapsed);
+      const thisNet = calculateNetWpm(thisProgressAttempts, thisUncorrectedErrors, thisElapsed);
 
       const accepted = onEvent({
         clientTimeMs:
@@ -420,6 +451,7 @@ export const TypingSurface = memo(
 
       lastKeyAtRef.current = clientTime;
       backspaceCountRef.current = 0;
+      correctionPositionRef.current = null;
       afterErrorRef.current = !isCorrect;
       afterPauseRef.current = false;
       refocusRef.current = false;
@@ -437,6 +469,7 @@ export const TypingSurface = memo(
       setCurrentWpm(stableCurrent);
       if (stableCurrent > 0) setPeakWpm((current) => Math.max(current, stableCurrent));
       setLastWrong(!isCorrect);
+      setPendingStoppedError(settings.stopOnError && !isCorrect);
 
       if (isCorrect) soundEngine.play(expected === " " ? "space" : "key");
       else soundEngine.play("error");
@@ -503,12 +536,21 @@ export const TypingSurface = memo(
             <button
               className="icon-button"
               type="button"
+              disabled={!controlsEnabled}
               onClick={() => setPauseState(!paused)}
               aria-label={paused ? "继续" : "暂停"}
             >
               {paused ? <Play size={18} /> : <Pause size={18} />}
             </button>
-            <button className="icon-button" type="button" onClick={reset} aria-label="重开当前微组">
+            <button
+              className="icon-button"
+              type="button"
+              disabled={!controlsEnabled}
+              onClick={() => {
+                if (controlsEnabled) restartCurrentBlock();
+              }}
+              aria-label="重开当前微组"
+            >
               <RotateCcw size={18} />
             </button>
           </div>

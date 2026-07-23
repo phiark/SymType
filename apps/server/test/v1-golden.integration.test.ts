@@ -214,7 +214,7 @@ describe.sequential("V1 server persistence goldens", () => {
       correct: 1,
       errors: 1,
       rawWpm: 2.4,
-      netWpm: 1.4,
+      netWpm: 0,
       keystrokeAccuracy: 0.5,
       finalTextAccuracy: 0.5,
       accuracy: 0.5,

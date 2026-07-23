@@ -79,6 +79,55 @@ describe("TrainPage progress-backed modes", () => {
     expect(url.searchParams.get("includeInModel")).toBe("1");
   });
 
+  it("rejects unsupported characters from pasted custom text before saving", async () => {
+    vi.spyOn(api, "get").mockResolvedValue({ texts: [] });
+    const post = vi.spyOn(api, "post");
+
+    renderTrain();
+    fireEvent.click(screen.getByRole("button", { name: /自定义文本/u }));
+    fireEvent.change(screen.getByPlaceholderText("Paste local training text here…"), {
+      target: { value: "plain — text" }
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/U\+2014.*ANSI US/u);
+    fireEvent.click(screen.getByRole("button", { name: /保存并开始训练/u }));
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("normalizes file and manual custom-text line endings through the same save path", async () => {
+    vi.spyOn(api, "get").mockResolvedValue({ texts: [] });
+    const post = vi.spyOn(api, "post").mockResolvedValue({
+      text: {
+        id: "8de78c3d-d10b-48aa-9408-2166b67deffa",
+        title: "windows-notes",
+        file_type: "txt",
+        character_count: 10,
+        word_count: 2,
+        include_in_model: 0,
+        reading_position: 0,
+        created_at: "2026-07-22T00:00:00.000Z",
+        updated_at: "2026-07-22T00:00:00.000Z"
+      }
+    });
+
+    renderTrain();
+    fireEvent.click(screen.getByRole("button", { name: /自定义文本/u }));
+    const file = new File(["alpha\r\nbeta"], "windows-notes.txt", { type: "text/plain" });
+    Object.defineProperty(file, "text", { value: () => Promise.resolve("alpha\r\nbeta") });
+    fireEvent.change(screen.getByLabelText(/导入 \.txt/u), { target: { files: [file] } });
+
+    expect(await screen.findByPlaceholderText("Paste local training text here…")).toHaveValue(
+      "alpha\nbeta"
+    );
+    fireEvent.click(screen.getByRole("button", { name: /保存并开始训练/u }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "/api/v1/custom-texts",
+        expect.objectContaining({ content: "alpha\nbeta", fileType: "txt" })
+      )
+    );
+  });
+
   it("renders the eight-step ladder from saved truth and passes recognized scope plus explicit characters", async () => {
     vi.spyOn(api, "get").mockResolvedValue({
       stages: [

@@ -5,7 +5,10 @@ import {
   findRuntimeNonJsonApiContract,
   runtimeApiContracts,
   runtimeBootstrapResponseSchema,
+  runtimeCompleteSessionRequestSchema,
+  runtimeCreateCustomTextRequestSchema,
   runtimeCreateSessionSchema,
+  runtimeCreateTestRequestSchema,
   runtimeCustomTextProgressRequestSchema,
   runtimeDiagnosticSnapshotResponseSchema,
   runtimeDiagnosticsResponseSchema,
@@ -13,6 +16,7 @@ import {
   runtimeGoalInputSchema,
   runtimeLongFormSourceIdSchema,
   runtimeMicroBlockRecordSchema,
+  runtimeRecoverSessionRequestSchema,
   runtimeNextBlockSchema,
   runtimeNonJsonApiContracts,
   runtimePathParamsFromUrl,
@@ -189,6 +193,38 @@ describe("local runtime API contracts", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts only bounded authoritative correction checkpoints on session closure", () => {
+    const correctionCheckpoint = {
+      blockId: "f30226f4-ed8c-4bc3-89c4-a2ad55aa9ddd",
+      position: 17
+    };
+    expect(
+      runtimeCompleteSessionRequestSchema.parse({ activeMs: 30_000, correctionCheckpoint })
+    ).toEqual({ activeMs: 30_000, correctionCheckpoint });
+    expect(
+      runtimeRecoverSessionRequestSchema.parse({
+        disposition: "abandon",
+        correctionCheckpoint
+      })
+    ).toEqual({ disposition: "abandon", correctionCheckpoint });
+    expect(
+      runtimeCreateTestRequestSchema.parse({
+        sessionId: "edf5f5e4-8f7c-4d83-a2b6-56d20f492b71",
+        durationSeconds: 30,
+        correctionCheckpoint
+      })
+    ).toEqual({
+      sessionId: "edf5f5e4-8f7c-4d83-a2b6-56d20f492b71",
+      durationSeconds: 30,
+      correctionCheckpoint
+    });
+    expect(
+      runtimeCompleteSessionRequestSchema.safeParse({
+        correctionCheckpoint: { ...correctionCheckpoint, position: -1 }
+      }).success
+    ).toBe(false);
+  });
+
   it("bounds deterministic session and block requests", () => {
     expect(
       runtimeCreateSessionSchema.parse({
@@ -310,6 +346,26 @@ describe("local runtime API contracts", () => {
     const sqlitePreview = findRuntimeApiContract("POST", "/api/v1/import/sqlite/preview");
     expect(sqlitePreview?.requestBody).toBe("binary");
     expect(sqlitePreview?.requestContentTypes).toContain("application/vnd.sqlite3");
+  });
+
+  it("normalizes custom-text line endings and rejects characters outside ANSI US", () => {
+    expect(
+      runtimeCreateCustomTextRequestSchema.parse({
+        title: "Windows text",
+        content: "alpha\r\nbeta\rgamma\t!",
+        fileType: "txt"
+      })
+    ).toMatchObject({ content: "alpha\nbeta\ngamma\t!", includeInModel: false });
+
+    for (const content of ["smart — punctuation", "emoji 🙂", "中文"]) {
+      const result = runtimeCreateCustomTextRequestSchema.safeParse({
+        title: "Unsupported",
+        content,
+        fileType: "txt"
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues[0]?.message).toMatch(/ANSI US/u);
+    }
   });
 
   it("separates read-only diagnostics from the CSRF-protected snapshot mutation", () => {

@@ -23,8 +23,11 @@ import {
   DEFAULT_PRIORITY_WEIGHTS,
   GAME_RULES,
   createFeatureStats,
+  describeUnsupportedCustomTextCharacter,
+  findUnsupportedCustomTextCharacter,
   findRuntimeApiContract,
   findRuntimeNonJsonApiContract,
+  runtimeAbandonSessionRequestSchema,
   runtimeCreateBackupRequestSchema,
   runtimeCreateCustomTextRequestSchema,
   generateMicroBlock,
@@ -52,6 +55,7 @@ import {
   runtimeStatisticsQuerySchema,
   runtimeCsrfQuerySchema,
   runtimeUuidIdParamsSchema,
+  normalizeCustomTextContent,
   scheduleAdaptiveFeatures,
   scheduleKeybrLikeBaseline,
   type FeatureKind,
@@ -755,7 +759,7 @@ export async function createApp(
     const params = parseOrReply(runtimeUuidIdParamsSchema, request.params, reply);
     const body = parseOrReply(runtimeCompleteSessionRequestSchema, request.body ?? {}, reply);
     if (!params || !body) return;
-    const summary = database.completeSession(params.id, body.activeMs);
+    const summary = database.completeSession(params.id, body.activeMs, body.correctionCheckpoint);
     return { saved: true, summary };
   });
   app.post("/api/v1/sessions/:id/feedback", async (request, reply) => {
@@ -768,12 +772,18 @@ export async function createApp(
     const params = parseOrReply(runtimeUuidIdParamsSchema, request.params, reply);
     const body = parseOrReply(runtimeRecoverSessionRequestSchema, request.body ?? {}, reply);
     if (!params || !body) return;
-    return database.recoverSession(params.id, body.disposition, body.activeMs);
+    return database.recoverSession(
+      params.id,
+      body.disposition,
+      body.activeMs,
+      body.correctionCheckpoint
+    );
   });
   app.post("/api/v1/sessions/:id/abandon", async (request, reply) => {
     const params = parseOrReply(runtimeUuidIdParamsSchema, request.params, reply);
-    if (!params) return;
-    database.abandonSession(params.id);
+    const body = parseOrReply(runtimeAbandonSessionRequestSchema, request.body ?? {}, reply);
+    if (!params || !body) return;
+    database.abandonSession(params.id, body.correctionCheckpoint);
     return { ok: true };
   });
 
@@ -898,6 +908,15 @@ export async function createApp(
     } else if (body.customTextId) {
       if (!customText) return userError(reply, 404, "TEXT_NOT_FOUND", "找不到这份本地文本。");
       const content = typeof customText.content === "string" ? customText.content : "";
+      const unsupported = findUnsupportedCustomTextCharacter(content);
+      if (unsupported) {
+        return userError(
+          reply,
+          409,
+          "UNSUPPORTED_CUSTOM_TEXT_CHARACTER",
+          `${describeUnsupportedCustomTextCharacter(unsupported)} 这份历史文本未被改写，请规范化后重新导入。`
+        );
+      }
       const storedPosition = Number(customText.reading_position ?? 0);
       const start = Math.min(Math.max(0, storedPosition), content.length);
       if (start >= content.length) {
@@ -1014,7 +1033,7 @@ export async function createApp(
   app.post("/api/v1/tests", async (request, reply) => {
     const body = parseOrReply(runtimeCreateTestRequestSchema, request.body, reply);
     if (!body) return;
-    const summary = database.completeSession(body.sessionId);
+    const summary = database.completeSession(body.sessionId, undefined, body.correctionCheckpoint);
     if (summary.characters === 0) {
       return userError(
         reply,
@@ -1114,9 +1133,36 @@ export async function createApp(
     return { text };
   });
   app.post("/api/v1/custom-texts", async (request, reply) => {
-    const body = parseOrReply(runtimeCreateCustomTextRequestSchema, request.body, reply);
-    if (!body) return;
-    return reply.status(201).send({ text: database.saveCustomText(body) });
+    const parsed = runtimeCreateCustomTextRequestSchema.safeParse(request.body);
+    const rawContent =
+      request.body != null &&
+      typeof request.body === "object" &&
+      "content" in request.body &&
+      typeof request.body.content === "string"
+        ? request.body.content
+        : undefined;
+    const unsupported =
+      rawContent == null
+        ? undefined
+        : findUnsupportedCustomTextCharacter(normalizeCustomTextContent(rawContent));
+    const onlyUnsupportedContent =
+      !parsed.success &&
+      unsupported != null &&
+      parsed.error.issues.length === 1 &&
+      parsed.error.issues[0]?.path[0] === "content" &&
+      parsed.error.issues[0].message.includes("ANSI US");
+    if (onlyUnsupportedContent) {
+      return userError(
+        reply,
+        400,
+        "UNSUPPORTED_CUSTOM_TEXT_CHARACTER",
+        describeUnsupportedCustomTextCharacter(unsupported)
+      );
+    }
+    if (!parsed.success) {
+      return userError(reply, 400, "VALIDATION_ERROR", "提交的数据不完整或格式不正确。");
+    }
+    return reply.status(201).send({ text: database.saveCustomText(parsed.data) });
   });
   app.patch("/api/v1/custom-texts/:id/progress", async (request, reply) => {
     const params = parseOrReply(runtimeUuidIdParamsSchema, request.params, reply);

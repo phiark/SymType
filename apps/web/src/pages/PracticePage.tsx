@@ -364,6 +364,12 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     });
   }, []);
 
+  const currentCorrectionCheckpoint = useCallback(() => {
+    const blockId = blockIdRef.current;
+    const position = surfaceRef.current?.getCorrectionPosition() ?? null;
+    return blockId && position != null ? { blockId, position } : undefined;
+  }, []);
+
   const requestBlock = useCallback(
     async (currentLessonId: string, index: number, lastProgress?: TypingProgress) => {
       const lastAccuracy = lastProgress?.accuracy ?? 1;
@@ -503,6 +509,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     async (activeMs?: number): Promise<boolean> => {
       const activeSessionId = sessionIdRef.current;
       if (!activeSessionId || finishingRef.current) return false;
+      const correctionCheckpoint = currentCorrectionCheckpoint();
       finishingRef.current = true;
       setState("saving");
       try {
@@ -510,7 +517,8 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
         const response = await api.post<{ saved: boolean; summary: SessionSummary }>(
           `/api/v1/sessions/${activeSessionId}/complete`,
           {
-            activeMs: Math.round(activeMs ?? Math.max(1000, elapsedActiveMs()))
+            activeMs: Math.round(activeMs ?? Math.max(1000, elapsedActiveMs())),
+            ...(correctionCheckpoint ? { correctionCheckpoint } : {})
           }
         );
         if (kind === "test" && response.summary.characters > 0) {
@@ -554,6 +562,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       durationMs,
       elapsedActiveMs,
       flush,
+      currentCorrectionCheckpoint,
       kind,
       mode,
       bypassNextNavigation,
@@ -708,8 +717,11 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     setSaveError("");
     try {
       if (sessionIdRef.current) {
+        const correctionCheckpoint = currentCorrectionCheckpoint();
         await flush();
-        await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {});
+        await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
+          ...(correctionCheckpoint ? { correctionCheckpoint } : {})
+        });
       }
       sessionIdRef.current = null;
       lessonIdRef.current = null;

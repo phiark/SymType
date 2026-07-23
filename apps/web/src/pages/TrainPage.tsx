@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { normalizeCustomTextContent, runtimeCustomTextContentSchema } from "@symtype/shared";
 import {
   Braces,
   CaseSensitive,
@@ -393,6 +394,17 @@ export function TrainPage() {
     );
   };
 
+  const updateCustomContent = (content: string) => {
+    const normalized = normalizeCustomTextContent(content);
+    setCustomContent(normalized);
+    if (!normalized) {
+      setCustomError("");
+      return;
+    }
+    const parsed = runtimeCustomTextContentSchema.safeParse(normalized);
+    setCustomError(parsed.success ? "" : (parsed.error.issues[0]?.message ?? "文本内容不受支持。"));
+  };
+
   const importFile = async (file: File | undefined) => {
     if (!file) return;
     const extension = file.name.split(".").at(-1)?.toLowerCase();
@@ -406,8 +418,7 @@ export function TrainPage() {
     }
     setCustomTitle(file.name.replace(/\.[^.]+$/u, ""));
     setCustomType(extension as typeof customType);
-    setCustomContent(await file.text());
-    setCustomError("");
+    updateCustomContent(await file.text());
   };
 
   const customSessionUrl = (text: CustomTextRecord) =>
@@ -420,15 +431,16 @@ export function TrainPage() {
   };
 
   const startCustom = async () => {
-    if (!customContent.trim()) {
-      setCustomError("请粘贴或导入至少一个可练习字符。");
+    const parsedContent = runtimeCustomTextContentSchema.safeParse(customContent);
+    if (!parsedContent.success) {
+      setCustomError(parsedContent.error.issues[0]?.message ?? "请粘贴或导入至少一个可练习字符。");
       return;
     }
     setCustomSaving(true);
     try {
       const response = await api.post<{ text: CustomTextRecord }>("/api/v1/custom-texts", {
         title: customTitle,
-        content: customContent,
+        content: parsedContent.data,
         fileType: customType,
         includeInModel
       });
@@ -790,7 +802,7 @@ export function TrainPage() {
                 maxLength={1_000_000}
                 rows={9}
                 spellCheck={false}
-                onChange={(event) => setCustomContent(event.target.value)}
+                onChange={(event) => updateCustomContent(event.target.value)}
                 placeholder="Paste local training text here…"
               />
               <small>
