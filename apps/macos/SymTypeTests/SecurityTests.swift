@@ -80,7 +80,7 @@ final class SecurityTests: XCTestCase {
     }
     let lockURL = directory.appendingPathComponent("application.lock")
     let first = try ApplicationInstanceLock(lockURL: lockURL)
-    withExtendedLifetime(first) {
+    try withExtendedLifetime(first) {
       XCTAssertThrowsError(try ApplicationInstanceLock(lockURL: lockURL)) { error in
         XCTAssertEqual(error as? DesktopSecurityError, .anotherApplicationIsRunning)
       }
