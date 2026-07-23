@@ -257,13 +257,16 @@ test.describe.serial("practice modes and input boundaries", () => {
     await page.getByRole("button", { name: /^开始/ }).click();
     await expect(page.getByRole("textbox", { name: "打字练习输入区" })).toBeVisible();
     const timer = page.locator(".practice-context-bar strong");
-    const before = await timer.textContent();
     await page.getByRole("button", { name: "暂停" }).click();
+    await expect(
+      page.locator(".typing-toolbar").getByRole("button", { name: "继续" })
+    ).toBeVisible();
+    const paused = await timer.textContent();
     await page.waitForTimeout(1_200);
-    expect(await timer.textContent()).toBe(before);
+    expect(await timer.textContent()).toBe(paused);
     await page.locator(".typing-toolbar").getByRole("button", { name: "继续" }).click();
     await page.waitForTimeout(1_200);
-    expect(await timer.textContent()).not.toBe(before);
+    expect(await timer.textContent()).not.toBe(paused);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "保存并退出" }).click();
   });

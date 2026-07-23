@@ -109,6 +109,8 @@ test.describe.serial("local-first onboarding and persisted training", () => {
     page,
     request
   }, testInfo) => {
+    // This acceptance path intentionally types five persisted blocks at a realistic pace.
+    test.setTimeout(90_000);
     await finishOnboarding(page);
     await mutate(request, "patch", "/api/v1/settings", { theme: "dark" });
     await page.reload();
