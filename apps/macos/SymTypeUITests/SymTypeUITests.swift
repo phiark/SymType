@@ -28,6 +28,14 @@ final class SymTypeUITests: XCTestCase {
       "Cmd-W should hide, rather than destroy, the native window."
     )
 
+    // `XCUIApplication.activate()` is a no-op while the application is already
+    // foreground, whereas a real Dock reopen follows an activation transition.
+    // Hide the still-running application first so the test exercises that path.
+    application.typeKey("h", modifierFlags: .command)
+    XCTAssertTrue(
+      application.wait(for: .runningBackground, timeout: 5),
+      "The retained application should remain alive while hidden."
+    )
     application.activate()
     XCTAssertTrue(
       application.windows.firstMatch.waitForExistence(timeout: 5),
