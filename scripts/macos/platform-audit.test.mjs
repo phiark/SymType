@@ -5,7 +5,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { extractMacOSMinimumVersions, smokePackagedServer } from "./platform-audit.mjs";
+import {
+  extractCoverageInstrumentation,
+  extractCoverageSymbols,
+  extractMacOSMinimumVersions,
+  smokePackagedServer
+} from "./platform-audit.mjs";
 
 const temporaryApplications = [];
 
@@ -16,6 +21,46 @@ afterEach(async () => {
 });
 
 describe("packaged server audit", () => {
+  it("rejects LLVM profile and coverage sections from release Mach-O files", () => {
+    expect(
+      extractCoverageInstrumentation(`
+Load command 4
+      cmd LC_SEGMENT_64
+  segname __DATA
+  sectname __llvm_prf_cnts
+Load command 5
+      cmd LC_SEGMENT_64
+  segname __LLVM_COV
+  sectname __llvm_covmap
+`)
+    ).toEqual(["__llvm_prf_cnts", "__LLVM_COV", "__llvm_covmap"]);
+
+    expect(
+      extractCoverageInstrumentation(`
+Load command 4
+      cmd LC_SEGMENT_64
+  segname __TEXT
+      sectname __text
+`)
+    ).toEqual([]);
+
+    expect(
+      extractCoverageSymbols(`
+___llvm_profile_runtime
+___llvm_profile_write_file
+___llvm_gcov_init
+___gcov_flush
+_ordinary_product_symbol
+`)
+    ).toEqual([
+      "___llvm_profile_runtime",
+      "___llvm_profile_write_file",
+      "___llvm_gcov_init",
+      "___gcov_flush"
+    ]);
+    expect(extractCoverageSymbols("_ordinary_product_symbol\n")).toEqual([]);
+  });
+
   it("does not mistake a linker tool version for the minimum macOS version", () => {
     const loadCommands = `
 Load command 9

@@ -27,6 +27,28 @@ const ALLOWED_LINK_PREFIXES = Object.freeze([
 const TEXT_EXTENSIONS = new Set([".css", ".html", ".js", ".json", ".plist"]);
 const ABSOLUTE_BUILD_PATH_MARKERS = Object.freeze(["/Users/", "/home/runner/work/"]);
 
+export function extractCoverageInstrumentation(loadCommands) {
+  const artifacts = [];
+  for (const line of loadCommands.split("\n")) {
+    const match = line.match(
+      /^\s*(?:segname|sectname)\s+(__LLVM_COV|__llvm_(?:cov|prf)[A-Za-z0-9_]*)\s*$/u
+    );
+    if (match && !artifacts.includes(match[1])) artifacts.push(match[1]);
+  }
+  return artifacts;
+}
+
+export function extractCoverageSymbols(symbols) {
+  return [
+    ...new Set(
+      symbols
+        .split("\n")
+        .map((symbol) => symbol.trim())
+        .filter((symbol) => /^_+(?:gcov|llvm_gcov|llvm_profile)(?:_|$)/u.test(symbol))
+    )
+  ];
+}
+
 export async function findMachOFiles(root) {
   const result = [];
   for (const file of await listFiles(root)) {
@@ -116,6 +138,20 @@ async function assertArm64MachO(appPath) {
       capture: true,
       quiet: true
     });
+    const symbols = await runCommand("/usr/bin/nm", ["-gj", file], {
+      capture: true,
+      quiet: true
+    });
+    const coverageInstrumentation = [
+      ...extractCoverageInstrumentation(loadCommands.stdout),
+      ...extractCoverageSymbols(symbols.stdout)
+    ];
+    if (coverageInstrumentation.length > 0) {
+      throw new Error(
+        `${relative(appPath, file)} contains release coverage instrumentation: ` +
+          coverageInstrumentation.join(", ")
+      );
+    }
     const minimumVersions = extractMacOSMinimumVersions(loadCommands.stdout);
     if (minimumVersions.length === 0) {
       throw new Error(`${relative(appPath, file)} does not declare a macOS minimum version`);

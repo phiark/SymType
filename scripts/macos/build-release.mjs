@@ -134,20 +134,14 @@ async function buildCleanSource({ sourceRoot, nodeRoot, npmCache }) {
   await verifyBuildRuntime(node, MACOS_RELEASE.nodeAbi, sourceRoot);
 }
 
-async function buildNativeApplication(sourceRoot, derivedDataPath, buildNumber) {
-  const project = join(sourceRoot, "apps", "macos", "SymType.xcodeproj");
-  if (!(await pathExists(project))) {
-    throw new Error(`Native project is missing from the release commit: ${project}`);
-  }
-  await createIcon({
-    source: join(sourceRoot, "apps", "macos", "SymType", "Resources", "AppIcon-master.png"),
-    destination: join(sourceRoot, "apps", "macos", "SymType", "Resources", "AppIcon.icns")
-  });
-  await runCommand("/usr/bin/xcodebuild", [
+export function nativeReleaseBuildArguments(project, derivedDataPath, buildNumber) {
+  return [
     "-project",
     project,
     "-scheme",
     "SymType",
+    "-enableCodeCoverage",
+    "NO",
     "-configuration",
     "Release",
     "-derivedDataPath",
@@ -161,9 +155,28 @@ async function buildNativeApplication(sourceRoot, derivedDataPath, buildNumber) 
     `CURRENT_PROJECT_VERSION=${buildNumber}`,
     `MARKETING_VERSION=${MACOS_RELEASE.productVersion}`,
     `PRODUCT_BUNDLE_IDENTIFIER=${MACOS_RELEASE.bundleIdentifier}`,
+    "ENABLE_CODE_COVERAGE=NO",
+    "CLANG_ENABLE_CODE_COVERAGE=NO",
+    "GCC_GENERATE_TEST_COVERAGE_FILES=NO",
+    "GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=NO",
     "clean",
     "build"
-  ]);
+  ];
+}
+
+async function buildNativeApplication(sourceRoot, derivedDataPath, buildNumber) {
+  const project = join(sourceRoot, "apps", "macos", "SymType.xcodeproj");
+  if (!(await pathExists(project))) {
+    throw new Error(`Native project is missing from the release commit: ${project}`);
+  }
+  await createIcon({
+    source: join(sourceRoot, "apps", "macos", "SymType", "Resources", "AppIcon-master.png"),
+    destination: join(sourceRoot, "apps", "macos", "SymType", "Resources", "AppIcon.icns")
+  });
+  await runCommand(
+    "/usr/bin/xcodebuild",
+    nativeReleaseBuildArguments(project, derivedDataPath, buildNumber)
+  );
   const product = join(
     derivedDataPath,
     "Build",
