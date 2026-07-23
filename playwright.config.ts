@@ -7,9 +7,15 @@ if (!Number.isSafeInteger(firstPort) || firstPort < 1_024 || firstPort > 65_534)
 }
 const chromiumURL = `http://127.0.0.1:${firstPort}`;
 const webkitURL = `http://127.0.0.1:${firstPort + 1}`;
+const snapshotPlatform = process.env.SYMTYPE_E2E_SNAPSHOT_SUFFIX;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  ...(snapshotPlatform
+    ? {
+        snapshotPathTemplate: `{testDir}/{testFilePath}-snapshots/{arg}-{projectName}-${snapshotPlatform}{ext}`
+      }
+    : {}),
   fullyParallel: false,
   workers: 1,
   timeout: 45_000,
