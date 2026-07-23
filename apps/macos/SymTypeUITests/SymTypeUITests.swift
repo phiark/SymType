@@ -30,15 +30,21 @@ final class SymTypeUITests: XCTestCase {
 
     // `XCUIApplication.activate()` is a no-op while the application is already
     // foreground, whereas a real Dock reopen follows an activation transition.
-    // Hide the still-running application first so the test exercises that path.
-    application.typeKey("h", modifierFlags: .command)
+    // Move focus to Finder first so the test exercises that transition without
+    // relying on a second shortcut being delivered after the window is hidden.
+    let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
+    finder.activate()
     XCTAssertTrue(
-      application.wait(for: .runningBackground, timeout: 5),
+      finder.wait(for: .runningForeground, timeout: 10),
+      "Finder should take focus before SymType is reactivated."
+    )
+    XCTAssertTrue(
+      application.wait(for: .runningBackground, timeout: 10),
       "The retained application should remain alive while hidden."
     )
     application.activate()
     XCTAssertTrue(
-      application.windows.firstMatch.waitForExistence(timeout: 5),
+      application.windows.firstMatch.waitForExistence(timeout: 10),
       "Activating the running application should reveal the same retained window."
     )
     XCTAssertEqual(application.windows.count, 1)
