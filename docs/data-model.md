@@ -34,8 +34,10 @@ stable-speed estimates.
 - Period analytics count characters from `keystroke_events` joined only to the selected completed
   sessions. They do not join `feature_stats` or `daily_summaries`, so the multiple key/bigram/trigram/
   finger/zone feature observations produced by one keystroke cannot multiply the period character
-  total. The Today dashboard uses the transactionally maintained `daily_summaries`; a regression
-  checks that a 15-event session is reported as 15 characters by both projections.
+  total. The Today dashboard aggregates canonical completed-session metrics from validated summaries
+  and authoritative event evidence rather than reading `daily_summaries` as its user-facing metric
+  source. A regression checks that a 15-event session is reported as 15 characters by both
+  projections.
 - An empty periodic flush does not claim the in-flight sender slot. If a second caller queues a final
   block while another send is resolving, it waits for ownership and then drains again; completion
   cannot mistake an older empty flush for acknowledgment of the newly queued batch.

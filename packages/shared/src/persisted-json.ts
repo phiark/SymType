@@ -237,6 +237,8 @@ function legacyUnavailableErrorAnalysis(eventCount: number) {
 const persistedSessionSummaryCurrentSchema = runtimeSessionSummarySchema
   .extend({
     errorAnalysis: persistedErrorAnalysisSchema,
+    metricVersion: z.literal(1).optional(),
+    uncorrectedErrors: z.number().int().nonnegative().optional(),
     subjectiveFeedback: z
       .object({
         difficulty: z.number().int().min(1).max(5),
@@ -245,7 +247,25 @@ const persistedSessionSummaryCurrentSchema = runtimeSessionSummarySchema
       })
       .optional()
   })
-  .passthrough();
+  .passthrough()
+  .superRefine((summary, context) => {
+    const hasVersion = summary.metricVersion != null;
+    const hasErrorCount = summary.uncorrectedErrors != null;
+    if (hasVersion !== hasErrorCount) {
+      context.addIssue({
+        code: "custom",
+        path: [hasVersion ? "uncorrectedErrors" : "metricVersion"],
+        message: "Session metric evidence must include both version and uncorrected error count"
+      });
+    }
+    if (summary.uncorrectedErrors != null && summary.uncorrectedErrors > summary.characters) {
+      context.addIssue({
+        code: "custom",
+        path: ["uncorrectedErrors"],
+        message: "Uncorrected error count cannot exceed session characters"
+      });
+    }
+  });
 
 /**
  * Session summaries written before dual accuracy and error-analysis fields were

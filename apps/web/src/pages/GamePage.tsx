@@ -252,6 +252,11 @@ export function GamePage({ play = false }: { play?: boolean }) {
     getEventContext,
     setSaveError
   );
+  const currentCorrectionCheckpoint = useCallback(() => {
+    const blockId = blockIdRef.current;
+    const position = surfaceRef.current?.getCorrectionPosition() ?? null;
+    return blockId && position != null ? { blockId, position } : undefined;
+  }, []);
   const { blocker, bypassNextNavigation } = useSessionNavigationGuard(Boolean(sessionId));
 
   useEffect(() => {
@@ -405,6 +410,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
         ...(progress ? { progress } : {}),
         ...(reason ? { failureReason: reason } : {})
       };
+      const correctionCheckpoint = currentCorrectionCheckpoint();
       resolvingRef.current = true;
       setResolving(true);
       if (result === "failure") soundEngine.play("alarm");
@@ -415,7 +421,8 @@ export function GamePage({ play = false }: { play?: boolean }) {
         const completedSessionId = sessionIdRef.current;
         if (!completedSessionId) throw new Error("当前游戏 session 已失效，请重开本关。");
         await api.post(`/api/v1/sessions/${completedSessionId}/complete`, {
-          activeMs: Math.round(Math.max(1000, secondsForLevel * 1000 - timeLeft))
+          activeMs: Math.round(Math.max(1000, secondsForLevel * 1000 - timeLeft)),
+          ...(correctionCheckpoint ? { correctionCheckpoint } : {})
         });
         await api.post(`/api/v1/game/runs/${runId}/level-result`, {
           sessionId: completedSessionId,
@@ -448,7 +455,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
         setResolving(false);
       }
     },
-    [flush, gameQuery, queryClient, runId, secondsForLevel, timeLeft]
+    [currentCorrectionCheckpoint, flush, gameQuery, queryClient, runId, secondsForLevel, timeLeft]
   );
 
   const loadGameStage = useCallback(
@@ -594,7 +601,10 @@ export function GamePage({ play = false }: { play?: boolean }) {
     alertRef.current = next;
     setAlertValue(next);
     if (next >= alertRules.alertMaximum) {
-      void resolveLevel("failure", undefined, "alert-maxed");
+      // TypingSurface clears a trailing correction checkpoint immediately
+      // after this callback accepts the key. Resolve in the following
+      // microtask so the saved checkpoint describes the accepted event.
+      queueMicrotask(() => void resolveLevel("failure", undefined, "alert-maxed"));
     }
     return true;
   };
@@ -604,9 +614,12 @@ export function GamePage({ play = false }: { play?: boolean }) {
     setPaused(true);
     setSaveError("");
     try {
+      const correctionCheckpoint = currentCorrectionCheckpoint();
       await flush();
       if (sessionIdRef.current) {
-        await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {});
+        await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
+          ...(correctionCheckpoint ? { correctionCheckpoint } : {})
+        });
       }
       sessionIdRef.current = null;
       lessonIdRef.current = null;

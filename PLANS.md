@@ -1,12 +1,13 @@
 # SymType Delivery Plan
 
-**Last reconciled:** 2026-07-22
+**Last reconciled:** 2026-07-23
 **Working method:** document-driven; every implementation pass begins from this plan and the
 requirements matrix, and every completed pass records evidence in `docs/progress-log.md`.
 
 SymType 2.0 is now an active convergence release. `docs/v2/V2-SCOPE.md`,
-`docs/v2/V2-PLAN.md`, and `docs/v2/REQUIREMENTS-MATRIX.md` control all new work. V2 cannot add a user
-feature or change a V1 business result.
+`docs/v2/V2-PLAN.md`, and `docs/v2/REQUIREMENTS-MATRIX.md` control all new work. V2 cannot add or
+remove a V1 user function or silently redefine its business contract; V2-D014 permits corrected
+fixed outputs only for confirmed implementation drift with focused regression evidence.
 
 ## Purpose
 
@@ -29,19 +30,27 @@ completed work is server-authoritative.
 
 ## Milestones
 
-| Phase | Deliverable                           | Dependency | Exit verification                     | Status      |
-| ----- | ------------------------------------- | ---------- | ------------------------------------- | ----------- |
-| 1     | Repo, docs, health, SQLite, launchers | None       | build + health + route refresh        | Done        |
-| 2     | High-risk persisted typing slice      | 1          | events survive restart/browser switch | Done        |
-| 3     | All practice modes and input settings | 2          | mode E2E in both engines              | Done        |
-| 4     | Adaptive engine and baseline          | 2          | deterministic unit/simulation suite   | Done        |
-| 5     | Analytics and data safety             | 2, 4       | empty/small/100k + restore tests      | Done        |
-| 6     | Six-level game                        | 2, 4       | success/reset/hardcore E2E            | Done        |
-| 7     | Visual/accessibility polish           | 3, 5, 6    | Chromium/WebKit screenshots           | Done        |
-| 8     | Release-candidate audit               | All        | check + E2E + clean install           | In progress |
+| Phase | Deliverable                           | Dependency | Exit verification                     | Status          |
+| ----- | ------------------------------------- | ---------- | ------------------------------------- | --------------- |
+| 1     | Repo, docs, health, SQLite, launchers | None       | build + health + route refresh        | Done            |
+| 2     | High-risk persisted typing slice      | 1          | events survive restart/browser switch | Done            |
+| 3     | All practice modes and input settings | 2          | mode E2E in both engines              | Done            |
+| 4     | Adaptive engine and baseline          | 2          | deterministic unit/simulation suite   | Done            |
+| 5     | Analytics and data safety             | 2, 4       | empty/small/100k + restore tests      | Done            |
+| 6     | Six-level game                        | 2, 4       | success/reset/hardcore E2E            | Done            |
+| 7     | Visual/accessibility polish           | 3, 5, 6    | Chromium/WebKit screenshots           | Done            |
+| 8     | Release-candidate audit               | All        | PR #4 tracks CI, review, and merge    | Delivery active |
 
 ## Progress
 
+- [x] Closed the Issue #3 whole-repository correctness pass with verified pre-migration snapshots,
+      receive-order-independent feature repair, canonical `TypingSurface`/server WPM projections, a
+      bounded trailing-correction checkpoint, and shared new-custom-text validation without changing
+      schema version or historical imported rows.
+- [x] Ran the final Issue #3 local gates under Node.js 22.16.0: `npm run check` passed 62 Vitest files
+      with 452 tests and one intentional skip, the 22-test literal regression suite passed, and all
+      four production builds passed. The complete production browser replay collected 74 cases:
+      73 passed with one intentional lifecycle-owner skip in 8.0 minutes.
 - [x] Close the second independent persisted-data audit: semantic modifier validation, explicit
       legacy JSON upcasts, historical dual-accuracy repair, complete immutable layout snapshots,
       semantic snapshot validation, aligned settings contracts, and bounded health work.
@@ -135,8 +144,11 @@ completed work is server-authoritative.
       macOS evidence and honest static-only Windows/Linux evidence on this host.
 - [x] Demonstrate one persisted history through an actual service restart and then read that same
       SQLite history from the other supported browser engine; storage clearing alone is insufficient.
-- [ ] Run the final merged release-candidate gates, reconcile every requirement status, and leave only
-      Done, Blocked, or reasoned Cancelled items before delivery.
+- [x] Run the final Issue #3 local release-candidate gates and reconcile the current requirement
+      evidence without promoting unavailable manual or external evidence.
+- [x] Commit and push the Issue #3 branch, then open linked, ready-for-review PR #4 against `main`.
+- [ ] Pass final-head CI and one independent approval, resolve conversations, and squash merge only
+      after the branch is current.
 
 ## Document-driven execution protocol
 
@@ -180,9 +192,10 @@ backup/restore, six complete game levels, and green quality commands in Chromium
 - The requirements matrix and UI rubric described an empty/not-built repository despite a
   substantial implementation. The matrix is now reconciled row by row; browser-dependent rows stay
   In progress until fresh visual/E2E evidence, and no bulk “Verified” promotion was used.
-- The repository has no committed baseline yet (all files are untracked). Final diff/provenance review
-  must therefore use file inventory, dependency/license review, source scans, and recorded checksums
-  instead of relying on Git history.
+- At the initial Gate 0 checkpoint the repository had no committed product baseline and all files were
+  untracked. PR #2 later entered the reviewed project through the required workflow and was
+  squash-merged as `a10e9a8`; the Issue #3 review now uses that Git baseline in addition to the file
+  inventory, dependency/license review, source scans, and recorded checksums.
 - The original calibration flow could finish after one 52-character block per selected category,
   contradicting the specified 3–5 minute baseline. The corrected policy measures active monotonic
   time, rotates small category samples, and separates the normal evidence boundary from a five-minute
@@ -212,14 +225,21 @@ place with a readable diagnostic. `SYMTYPE_DATA_DIR` allows isolated development
 
 ## Outcomes & Retrospective
 
-The post-domain Node 24 checkpoint passed `npm run check` with 44 Vitest files, 377 passes and one
-intentional skip, plus zero-warning lint, strict root/workspace typechecks, and all production builds.
-Its rebuilt browser checkpoint collected 70 cases and passed 69 with one intentional skip in about six
-minutes; it includes the real restart/fresh-WebKit read of the same SQLite history and the production
-typing-performance gate. The complete isolated launcher smoke and paired review of all 30 screenshots
-also passed. Later typing-policy, Settings-reset, populated-Analytics, and game-audio regressions have
-focused evidence but were added after those complete runs, so final merged `check` and E2E replays plus
-requirements reconciliation remain open; this is not yet the final release outcome.
+The historical post-domain Node 24 checkpoint passed `npm run check` with 44 Vitest files, 377 passes
+and one intentional skip. Its rebuilt browser checkpoint collected 70 cases and passed 69 with one
+intentional skip in about six minutes. Those results remain useful historical evidence, including the
+real restart/fresh-WebKit read and production typing-performance gate, but they are not the current
+candidate counts.
+
+The final Issue #3 local candidate gate supersedes them: Node.js 22.16.0 `npm run check` passed
+zero-warning lint, strict root/workspace type checks, 62 Vitest files with 452 passes and one
+intentional skip, the complete 22-test literal regression suite, and all four builds. The rebuilt
+production browser gate collected 74 Chromium/WebKit cases and passed 73 with one intentional
+lifecycle-owner skip in 8.0 minutes. The focused seven-file data-safety replay passed 34 tests, the
+isolated launcher smoke passed, and current requirement/document evidence is reconciled. Local
+acceptance is complete, and commits `59f4275`/`df9f123` are published in linked PR #4. At this
+publication checkpoint, final-head CI, one independent approval, resolved conversations, and squash
+merge remain before repository delivery is complete; PR #4 is the authoritative live record.
 
 The expanded experiment-enabled 100k path now measures approximately 755.5 ms for statistics plus
 dashboard on this Mac. It exercises the live calibration/retention/report calculations and supersedes

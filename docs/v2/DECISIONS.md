@@ -142,6 +142,26 @@ pull-request, Node 22 status check, up-to-date branch, resolved-conversation, li
 no-bypass, no-force-push, and no-deletion protections active during the merge. Restore the
 independent-approval requirement immediately afterwards for future changes.
 
+## V2-D014: Correct confirmed contract drift instead of preserving stale expected values
+
+**Date:** 2026-07-22
+**State:** Accepted for Issue #3
+
+The whole-repository review confirmed five correctness and data-safety defects: existing databases
+could migrate without a recovery snapshot; delayed event batches could make feature models depend on
+network arrival order; server and live typing metrics disagreed with the documented shared net-WPM
+contract; a final Backspace correction could be absent from a completion summary; and unsupported
+custom-text characters could be persisted even though the trainer has no physical-key mapping for
+them.
+
+Fix these defects without adding or removing a user function, changing the schema version, rewriting
+historical custom text, or inventing browser evidence. This decision supplies the confirmed-defect
+exception required by V2-D007 for the net-WPM literal goldens because `docs/product-spec.md` and the
+existing shared metric function already define the authoritative exact rule: subtract each final
+uncorrected error once per active minute and floor at zero. The prior server clamp and all-attempt
+error count were implementation drift, not the V1 business contract. Every changed literal must be
+paired with focused regression evidence.
+
 ## Confirmed defects
 
 This section records only defects confirmed during V2 work. Add a regression test before a fix.
@@ -156,3 +176,22 @@ This section records only defects confirmed during V2 work. Add a regression tes
 - UI-001: `TypingSurface` transient visual, focus, and completion timers could outlive an unmounted
   surface. The component now owns and clears those timers; a focused unmount regression prevents
   late React updates without changing typing results.
+- DATA-001: Existing databases could enter a forward migration without a verified recovery snapshot.
+  Direct and standalone migration now create a mode-0600, integrity-checked pre-migration SQLite
+  snapshot before the first schema change, and failed migrations preserve it.
+- METRIC-001: Server summaries and live typing could clamp or count errors differently from the
+  documented shared net-WPM contract. The canonical `TypingSurface` and server summary/projection
+  paths now use the shared functions with reconstructed final uncorrected errors; legacy public
+  summaries, tests, experiments, game settlement, and CSV exports materialize canonical values
+  without rewriting history. V2-D014 authorizes the corrected goldens.
+- INPUT-001: A Backspace made after the last persisted character event could correct the visible text
+  without correcting the saved summary. Completion and explicit save now send a bounded,
+  session-owned correction checkpoint for the latest sequenced block without fabricating an event;
+  completion-latched surfaces reject further character or Backspace input while saving.
+- INPUT-002: New custom text could contain characters outside the immutable ANSI-US input map.
+  Import and API boundaries now normalize line endings and reject the first unsupported code point;
+  historical rows are preserved and fail lesson generation with recovery guidance.
+- MODEL-001: A delayed lower-sequence event batch could update feature evidence after newer events and
+  make the model depend on receive order. That rare path now folds only touched features from the
+  same profile's canonical session/event order and writes each once; normal in-order batches remain
+  incremental.

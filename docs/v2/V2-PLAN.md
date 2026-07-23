@@ -1,15 +1,17 @@
 # SymType 2.0 Delivery Plan
 
-**Last update:** 2026-07-22
+**Last update:** 2026-07-23
 **Method:** Document-driven release convergence
-**Release state:** PR #2 is accepted for merge under the maintainer's documented one-time review waiver
+**Release state:** PR #2 is merged; Issue #3 corrections are published in PR #4 and await its
+final-head CI, independent review, and squash merge
 
 ## Purpose
 
-Ship SymType 2.0 without changing V1 business results or risking local SQLite history. Work now
-follows release value: data safety, startup, visible product behavior, browser compatibility, and
-release evidence. Performance, maintenance, and documentation work does not expand without a
-confirmed release problem.
+Ship SymType 2.0 without adding or removing a V1 user function or risking local SQLite history.
+V2-D014 permits corrected fixed outputs only where focused evidence confirms implementation drift
+from the existing V1 business contract. Work now follows release value: data safety, startup, visible
+product behavior, browser compatibility, and release evidence. Performance, maintenance, and
+documentation work does not expand without a confirmed release problem.
 
 ## Current release snapshot
 
@@ -17,15 +19,16 @@ confirmed release problem.
 - Literal V1 golden tests freeze lesson selection, metrics, keyboard behavior, event conversion,
   settings, history, game state, export, and restore.
 - The final product replay collected 74 Chromium/WebKit tests: 73 passed and the duplicated
-  lifecycle-owner case was intentionally skipped once. It completed in 7.1 minutes.
+  lifecycle-owner case was intentionally skipped once. It completed in 8.0 minutes.
 - Gate 2 has a repeatable five-fragment baseline in
   `reports/performance/v1-baseline.json`. It covers empty startup, 100,000 events, common product
   reads and writes, the real Fastify child event loop, Chromium/WebKit typing, and bundle size.
 - No product-level release blocker or dead user control was found in the current source audit.
 - The final focused data-safety replay passed seven migration, event-integrity, settings,
   persistence, export, backup, restore, and canonical-history files with 34 tests.
-- The final Node.js 22.16.0 `npm run check` passed lint, strict type checks, 61 Vitest files with
-  424 tests passed and one intentional skip, 22 literal regression tests, and all four builds.
+- The final Node.js 22.16.0 `npm run check` passed lint, strict type checks, 62 Vitest files with
+  452 tests passed and one intentional skip, and all four builds. The separate literal regression
+  suite passed all 22 tests.
 - The final isolated launcher smoke passed offline clean install/build/migration, occupied-port
   fallback, schema 10 health, live reuse, private POSIX modes, damaged-output rebuild, lockfile
   planning, and graceful shutdown.
@@ -34,21 +37,22 @@ confirmed release problem.
   a release-level console error.
 - Release cleanup now cancels typing-surface transient timers on unmount, preventing late React
   updates while leaving keystroke and completion results unchanged.
-- The target GitHub repository has the file-free bootstrap commit `95aa3e5` on `main`, Issue #1,
-  branch `chore/1-symtype-2-release`, commit `cd66491`, and ready-for-review PR #2.
+- The target GitHub repository has the file-free bootstrap commit `95aa3e5` and merged release
+  candidate commit `a10e9a8` on `main`; PR #2 delivered the Issue #1 branch. Issue #3 commits
+  `59f4275` and `df9f123` are published from `fix/3-review-correctness-gaps` in PR #4.
 - PR CI run 29903653128 exposed one clean-checkout infrastructure defect: type-aware lint ran
   before internal workspace `dist` entry points existed. V2-D012 records the bounded fix; no
   product logic or lint rule changes.
-- An isolated source copy without `.git`, `node_modules`, or any `dist` passed Node 22.16.0 offline
-  `npm ci`, automatically ran `prepare`, then passed the complete 421-test, 22-golden, four-build
-  `npm run check`.
-- GitHub Actions run 29904308912 passed install, formatting, lint, typecheck, tests, and build for
-  the clean-checkout repair commit `ed1aae9`.
+- During bootstrap PR #2, an isolated source copy without `.git`, `node_modules`, or any `dist`
+  passed Node 22.16.0 offline `npm ci`, automatically ran `prepare`, then passed the complete
+  421-test, 22-golden, four-build `npm run check`.
+- The corresponding GitHub Actions run 29904308912 passed install, formatting, lint, typecheck,
+  tests, and build for the clean-checkout repair commit `ed1aae9`.
 - Repository settings allow only Squash Merge and automatically delete merged branches. The saved
   `main` rule normally requires a current PR, one independent approval of the latest push, the Node
   22 check, current branches, resolved conversations, linear history, and no administrator bypass;
-  force pushes and deletion remain disabled. V2-D013 records the maintainer-authorized one-time
-  approval waiver for bootstrap PR #2 and requires restoring that review gate after merge.
+  force pushes and deletion remain disabled. V2-D013 records the historical maintainer-authorized
+  one-time approval waiver used for bootstrap PR #2; the normal review gate applies to Issue #3.
 - The official ASD-STE100 Issue 9 PDF is unavailable. The normative review remains externally
   blocked and does not block independent product work.
 
@@ -58,7 +62,7 @@ confirmed release problem.
 | --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Blocker | Final Node.js 22 `npm run check`                                               | The current candidate cannot be published with an unverified final tree.                                               |
 | Release Blocker | Core Chromium and WebKit acceptance                                            | Recheck startup, training completion, persistence, analytics, restore, and game after release edits.                   |
-| Release Blocker | GitHub CI and merge authorization                                              | Final-head CI is green; the maintainer authorized a one-time review waiver for bootstrap PR #2.                        |
+| Release Blocker | GitHub CI and merge authorization                                              | PR #4 is open; its final-head CI, independent approval, resolved conversations, and merge remain required.             |
 | Required        | 100k product smoke                                                             | Verify Today, training completion, and common Analytics behavior against the populated fixture.                        |
 | Required        | Data-safety release replay                                                     | Recheck event idempotency, migration, export, restore, and database integrity on copies.                               |
 | Required        | Repository workflow files                                                      | Persist contribution, Issue, PR, CI, version, changelog, and release rules using real commands.                        |
@@ -68,21 +72,21 @@ confirmed release problem.
 | Optional        | Compression, source-map, and initial chart-loading investigation               | Current local bundle and route behavior are usable; no measured user blocker exists.                                   |
 | Cancelled       | Unproven architecture or database rewrite                                      | The 100k result is usable and no safe, necessary hotspot change has been justified.                                    |
 | Cancelled       | Full file-size, complexity, coverage, and maintenance platform                 | Existing debt is recorded; framework expansion would delay higher-value release work.                                  |
-| Cancelled       | New V2 visual redesign or duplicate screenshot platform                        | V2 changes do not alter product UI; use existing visual evidence plus final core review.                               |
+| Cancelled       | New V2 visual redesign or duplicate screenshot platform                        | No visual redesign is justified; use existing visual evidence plus focused review of corrected interactions.           |
 | Cancelled       | New STE checker platform                                                       | Keep only the external official-PDF review blocker and the existing concise record.                                    |
 
 ## Gate status
 
-| Gate                         | Release exit                                                | Status    | Evidence or disposition                       |
-| ---------------------------- | ----------------------------------------------------------- | --------- | --------------------------------------------- |
-| 0. Protect current state     | Supported install, build, start, health                     | Done      | Node 22 clean install/build/start evidence    |
-| 1. Freeze V1 behavior        | Literal business outputs and contracts pass                 | Done      | 22 golden tests plus full V1 suites           |
-| 2. Minimal credible baseline | Correct empty/100k, child-process, browser, bundle evidence | Done      | `reports/performance/v1-baseline.json`        |
-| 3. Optimize bottlenecks      | Only act on a proven release problem                        | Cancelled | No release-level optimization is required     |
-| 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Done      | Final Chromium/WebKit review passed           |
-| 5. Converge code             | Remove confirmed dead source/dependency only                | Done      | Bounded cleanup and release checks passed     |
-| 6. Conform documents         | Official Issue 9 review                                     | Blocked   | User must provide the official PDF local path |
-| 7. Accept and publish        | Check, core E2E, data safety, CI, merge authorization       | Done      | V2-D013 authorizes bootstrap PR #2 merge      |
+| Gate                         | Release exit                                                | Status      | Evidence or disposition                       |
+| ---------------------------- | ----------------------------------------------------------- | ----------- | --------------------------------------------- |
+| 0. Protect current state     | Supported install, build, start, health                     | Done        | Node 22 clean install/build/start evidence    |
+| 1. Freeze V1 behavior        | Literal business outputs and contracts pass                 | Done        | 22 golden tests plus full V1 suites           |
+| 2. Minimal credible baseline | Correct empty/100k, child-process, browser, bundle evidence | Done        | `reports/performance/v1-baseline.json`        |
+| 3. Optimize bottlenecks      | Only act on a proven release problem                        | Cancelled   | No release-level optimization is required     |
+| 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Done        | Final Chromium/WebKit review passed           |
+| 5. Converge code             | Remove confirmed dead source/dependency only                | Done        | Bounded cleanup and release checks passed     |
+| 6. Conform documents         | Official Issue 9 review                                     | Blocked     | User must provide the official PDF local path |
+| 7. Accept and publish        | Check, core E2E, data safety, CI, merge authorization       | In progress | PR #4 tracks final CI/review/merge            |
 
 ## Gate 0 and Gate 1 evidence
 
@@ -133,23 +137,23 @@ for a single-user local application. Record it as an Optional future target if r
 
 ## Active release work
 
-1. Squash merge PR #2 after its final documentation-only CI passes, restore the independent-review
-   gate, and verify the resulting `main` workflow run.
+1. Use linked PR #4 to pass final-head CI and one independent review, resolve every conversation,
+   and squash merge only after `fix/3-review-correctness-gaps` is current with `main`.
 
 ## GitHub bootstrap decision
 
 The empty remote had no `main` from which a numbered branch could be created. Commit `95aa3e5`
 created the documented file-free bootstrap and was pushed to `main`. Issue #1 and branch
-`chore/1-symtype-2-release` were then created from that base. The entire reviewed project enters
-through that PR; no product file was committed directly to `main`.
+`chore/1-symtype-2-release` were then created from that base. The entire reviewed project entered
+through PR #2 and was squash-merged as `a10e9a8`; no product file was committed directly to `main`.
 
 ## Active risks
 
 | Risk                                                    | Control                                                                   | State              |
 | ------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------ |
-| Local product tree has no older Git baseline            | Literal goldens, raw baseline, final PR diff                              | Controlled         |
+| Initial product import had no older Git baseline        | Literal goldens, raw baseline, PR #2 history, current Issue #3 diff       | Controlled         |
 | Active Homebrew Node resolves to 25                     | Use explicit Node 22.16.0 PATH in release commands                        | Controlled         |
-| `gh` CLI token is invalid                               | Use Git credential, connector, and authenticated Chrome where available   | Controlled         |
+| GitHub operations require live authentication/network   | CLI keyring and connector verified before publishing PR #4                | Resolved           |
 | Branch-rule save requires GitHub sudo mode              | Owner confirmed access; the complete `main` rule is saved                 | Resolved           |
 | Clean CI lacked workspace `dist` type entry points      | Root npm `prepare`; isolated and GitHub checks pass                       | Resolved           |
 | Official STE PDF is absent                              | Do not use unofficial summaries; request only the local official PDF path | Externally blocked |
@@ -157,8 +161,9 @@ through that PR; no product file was committed directly to `main`.
 
 ## Outcomes
 
-Gates 0, 1, 2, 4, 5, and 7 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
-blocked. PR #2 contains the bounded release candidate, its product and browser evidence is green,
-and V2-D013 supplies explicit merge authorization. The documentation-only final commit must pass
-the existing Node 22 check before squash merge; no Optional performance or maintenance-platform
-work is reopened.
+Gates 0, 1, 2, 4, and 5 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
+blocked. PR #2 delivered the release candidate to `main` as `a10e9a8`. Issue #3 corrects the bounded
+contract drift authorized by V2-D014; its final local Node 22, regression, data-safety, launcher, and
+Chromium/WebKit gates are green. Commits `59f4275` and `df9f123` are published in PR #4. Gate 7
+remains open only for that PR's final CI/review/merge workflow; no Optional performance or
+maintenance-platform work is reopened.

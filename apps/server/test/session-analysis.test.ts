@@ -6,6 +6,7 @@ import {
   calculateSessionSummary,
   classifyAlignedText,
   mergeErrorAnalysis,
+  summarizeFinalText,
   unavailableErrorAnalysis,
   type SummaryEventRow
 } from "../src/domain/session-analysis.js";
@@ -58,6 +59,46 @@ describe("session analysis domain", () => {
       activeMs: 1_000
     });
     expect(summary.feedback.bottleneck).toContain("1 次错误");
+  });
+
+  test("uses the canonical short-test penalty for only errors left in the submitted text", () => {
+    const corrected = calculateSessionSummary(
+      [
+        row(0, "a", "s"),
+        row(1, "a", "a", { text_position: 0, is_correction: 1, backspace_count: 1 }),
+        row(2, "b")
+      ],
+      30_000
+    );
+    expect(corrected).toMatchObject({ rawWpm: 1.2, netWpm: 1.2, finalTextAccuracy: 1 });
+
+    const oneRemainingError = calculateSessionSummary(
+      Array.from({ length: 10 }, (_, sequence) => row(sequence, "a", sequence === 9 ? "s" : "a")),
+      30_000
+    );
+    expect(oneRemainingError).toMatchObject({ rawWpm: 4, netWpm: 2 });
+  });
+
+  test("applies a trailing correction checkpoint without inventing a keystroke", () => {
+    const rows = [row(0, "a"), row(1, "b", "x")];
+    const checkpoint = {
+      blockId: "block-1",
+      position: 1
+    };
+    const summary = calculateSessionSummary(rows, 30_000, undefined, checkpoint);
+
+    expect(summary).toMatchObject({
+      characters: 2,
+      errors: 1,
+      rawWpm: 0.8,
+      netWpm: 0.8,
+      finalTextAccuracy: 1
+    });
+    expect(summarizeFinalText(rows, checkpoint)).toEqual({
+      characters: 1,
+      correct: 1,
+      uncorrectedErrors: 0
+    });
   });
 
   test("classifies text and timing from repository-neutral rows", () => {

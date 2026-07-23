@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SYMMETRIC_LAYOUT, type RuntimeStoredEvent } from "@symtype/shared";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { createApp, type AppContext } from "../src/app.js";
 
@@ -68,6 +68,7 @@ describe("server-authoritative event ingest", () => {
   const contexts: AppContext[] = [];
 
   afterEach(async () => {
+    vi.useRealTimers();
     await Promise.allSettled(contexts.splice(0).map(({ app }) => app.close()));
     for (const directory of directories.splice(0)) {
       rmSync(directory, { recursive: true, force: true });
@@ -306,6 +307,41 @@ describe("server-authoritative event ingest", () => {
     ).toMatchObject({ sample_count: 3 });
   });
 
+  test("repairs a nullable legacy last-practiced timestamp on the next model sample", async () => {
+    const fixture = await harness("a", "common-english", true);
+    fixture.context.database.db
+      .prepare(
+        `INSERT INTO feature_stats
+         (profile_id, feature_type, feature_value, recent_window_json,
+          last_practiced_at, algorithm_version, updated_at)
+         VALUES('local-profile', 'key', 'a', '[]', NULL, 'adaptive-v1', ?)`
+      )
+      .run("2024-01-01T00:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T00:59:00.000Z"));
+
+    fixture.context.database.ingestEvents(
+      fixture.sessionId,
+      randomUUID(),
+      [eventFor(0, "a", 0)],
+      fixture.lessonId,
+      fixture.blockId
+    );
+
+    expect(
+      fixture.context.database.db
+        .prepare(
+          `SELECT sample_count, last_practiced_at, updated_at FROM feature_stats
+           WHERE profile_id = 'local-profile' AND feature_type = 'key' AND feature_value = 'a'`
+        )
+        .get()
+    ).toEqual({
+      sample_count: 1,
+      last_practiced_at: "2026-07-22T00:59:00.000Z",
+      updated_at: "2026-07-22T00:59:00.000Z"
+    });
+  });
+
   test("repairs post-error context by sequence when an earlier batch arrives late and stays idempotent", async () => {
     const fixture = await harness("ab");
     const laterBatchId = randomUUID();
@@ -395,4 +431,293 @@ describe("server-authoritative event ingest", () => {
         .get(fixture.sessionId)
     ).toEqual({ count: 2 });
   });
+
+  test("derives every order-sensitive feature field from event sequence after a late batch", async () => {
+    const inOrder = await harness("a", "common-english", true);
+    const reversed = await harness("a", "common-english", true);
+    const wrong = eventFor(0, "a", 0, {
+      actualChar: "s",
+      physicalCode: "KeyS",
+      isCorrect: false,
+      ikiMs: 900
+    });
+    const corrected = eventFor(1, "a", 0, { ikiMs: 240 });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T01:00:00.000Z"));
+    inOrder.context.database.ingestEvents(
+      inOrder.sessionId,
+      randomUUID(),
+      [wrong],
+      inOrder.lessonId,
+      inOrder.blockId
+    );
+    reversed.context.database.ingestEvents(
+      reversed.sessionId,
+      randomUUID(),
+      [corrected],
+      reversed.lessonId,
+      reversed.blockId
+    );
+
+    vi.setSystemTime(new Date("2026-07-22T01:00:05.000Z"));
+    inOrder.context.database.ingestEvents(
+      inOrder.sessionId,
+      randomUUID(),
+      [corrected],
+      inOrder.lessonId,
+      inOrder.blockId
+    );
+    reversed.context.database.ingestEvents(
+      reversed.sessionId,
+      randomUUID(),
+      [wrong],
+      reversed.lessonId,
+      reversed.blockId
+    );
+
+    const featureRows = (fixture: EventHarness) =>
+      fixture.context.database.db
+        .prepare(
+          `SELECT profile_id, feature_type, feature_value, short_alpha, short_beta,
+                  long_alpha, long_beta, short_iki_ms, long_iki_ms, iki_mad_ms,
+                  sample_count, current_streak, recent_window_json, last_practiced_at,
+                  learning_slope, algorithm_version, updated_at
+           FROM feature_stats
+           ORDER BY feature_type, feature_value`
+        )
+        .all();
+    const expected = featureRows(inOrder);
+    const repaired = featureRows(reversed);
+
+    expect(repaired).toEqual(expected);
+    expect(repaired).not.toHaveLength(0);
+    expect(repaired).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          feature_type: "key",
+          feature_value: "a",
+          sample_count: 2,
+          current_streak: 1,
+          recent_window_json: "[0,240]",
+          last_practiced_at: "2026-07-22T01:00:05.000Z",
+          updated_at: "2026-07-22T01:00:05.000Z",
+          algorithm_version: "adaptive-v1"
+        })
+      ])
+    );
+  });
+
+  test("repairs a first batch from an earlier session after a later session was modeled", async () => {
+    const earlier = await harness("a", "common-english", true);
+    const laterSession = earlier.context.database.createSession({
+      kind: "training",
+      mode: "common-english",
+      strategy: "adaptive",
+      seed: 7110,
+      focus: [],
+      includeInModel: true
+    }) as { id: string; lessonId: string };
+    const laterBlock = earlier.context.database.addMicroBlock(
+      laterSession.lessonId,
+      0,
+      "focus",
+      "a",
+      7111,
+      "Cross-session ordering fixture"
+    ) as { id: string };
+    earlier.context.database.db
+      .prepare("UPDATE sessions SET started_at = ? WHERE id = ?")
+      .run("2026-07-22T00:00:00.000Z", earlier.sessionId);
+    earlier.context.database.db
+      .prepare("UPDATE sessions SET started_at = ? WHERE id = ?")
+      .run("2026-07-22T00:00:01.000Z", laterSession.id);
+    const earlierWrong = eventFor(0, "a", 0, {
+      actualChar: "s",
+      physicalCode: "KeyS",
+      isCorrect: false,
+      ikiMs: 900
+    });
+    const laterCorrect = eventFor(0, "a", 0, { ikiMs: 240 });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T01:00:00.000Z"));
+    earlier.context.database.ingestEvents(
+      laterSession.id,
+      randomUUID(),
+      [laterCorrect],
+      laterSession.lessonId,
+      laterBlock.id
+    );
+    vi.setSystemTime(new Date("2026-07-22T01:00:05.000Z"));
+    earlier.context.database.ingestEvents(
+      earlier.sessionId,
+      randomUUID(),
+      [earlierWrong],
+      earlier.lessonId,
+      earlier.blockId
+    );
+
+    expect(
+      earlier.context.database.db
+        .prepare(
+          `SELECT sample_count, current_streak, recent_window_json
+           FROM feature_stats
+           WHERE profile_id = 'local-profile' AND feature_type = 'key' AND feature_value = 'a'`
+        )
+        .get()
+    ).toEqual({
+      sample_count: 2,
+      current_streak: 1,
+      recent_window_json: "[0,240]"
+    });
+  });
+
+  test("keeps canonical feature repair scoped to the current session profile", async () => {
+    const fixture = await harness("aa", "common-english", true);
+    const database = fixture.context.database.db;
+    const foreignProfileId = "restored-profile";
+    const foreignSessionId = "restored-profile-session";
+    const localStartedAt = "2026-07-22T00:00:00.000Z";
+    const foreignStartedAt = "2026-07-22T00:00:01.000Z";
+
+    const seedForeignHistory = database.transaction(() => {
+      database
+        .prepare(
+          `INSERT INTO profiles(id, display_name, created_at, updated_at)
+           VALUES(?, 'Restored typist', ?, ?)`
+        )
+        .run(foreignProfileId, foreignStartedAt, foreignStartedAt);
+      database
+        .prepare(
+          `INSERT INTO sessions
+           (id, profile_id, kind, mode, strategy, status, seed, started_at, completed_at,
+            algorithm_version, include_in_model)
+           VALUES(?, ?, 'training', 'common-english', 'adaptive', 'completed', 9100, ?, ?,
+                  'adaptive-v1', 1)`
+        )
+        .run(foreignSessionId, foreignProfileId, foreignStartedAt, foreignStartedAt);
+      database
+        .prepare(
+          `INSERT INTO keystroke_events (
+             session_id, sequence, client_time_ms, server_time, target_char, actual_char,
+             physical_code, shift_side, modifiers_json, is_correct, is_correction,
+             backspace_count, iki_ms, feature_char, mapped_hand, mapped_finger,
+             keyboard_row, zone, character_class, content_mode, text_position,
+             is_word_boundary, is_after_error, was_refocus, was_paused, was_long_pause,
+             was_throttled, was_repeat
+           ) VALUES (
+             ?, 0, 100, ?, 'a', 'a', 'KeyA', 'none', '{}', 1, 0, 0, 800, 'a',
+             'left', 'left-pinky', 'home', 'left-pinky', 'lowercase', 'common-english', 0,
+             0, 0, 0, 0, 0, 0, 0
+           )`
+        )
+        .run(foreignSessionId, foreignStartedAt);
+      database
+        .prepare("UPDATE sessions SET started_at = ? WHERE id = ?")
+        .run(localStartedAt, fixture.sessionId);
+    });
+    seedForeignHistory();
+
+    fixture.context.database.ingestEvents(
+      fixture.sessionId,
+      randomUUID(),
+      [eventFor(1, "a", 1, { ikiMs: 240 })],
+      fixture.lessonId,
+      fixture.blockId
+    );
+    fixture.context.database.ingestEvents(
+      fixture.sessionId,
+      randomUUID(),
+      [
+        eventFor(0, "a", 0, {
+          actualChar: "s",
+          physicalCode: "KeyS",
+          isCorrect: false,
+          ikiMs: 900
+        })
+      ],
+      fixture.lessonId,
+      fixture.blockId
+    );
+
+    expect(
+      database
+        .prepare(
+          `SELECT sample_count, current_streak, recent_window_json
+           FROM feature_stats
+           WHERE profile_id = 'local-profile' AND feature_type = 'key' AND feature_value = 'a'`
+        )
+        .get()
+    ).toEqual({
+      sample_count: 2,
+      current_streak: 1,
+      recent_window_json: "[0,240]"
+    });
+  });
+
+  test("rebuilds touched features across 100k later events within the local 5s threshold", async () => {
+    const earlier = await harness("a", "common-english", true);
+    const later = earlier.context.database.createSession({
+      kind: "training",
+      mode: "common-english",
+      strategy: "adaptive",
+      seed: 8120,
+      focus: [],
+      includeInModel: true
+    }) as { id: string };
+    earlier.context.database.db
+      .prepare("UPDATE sessions SET started_at = ? WHERE id = ?")
+      .run("2026-07-22T00:00:00.000Z", earlier.sessionId);
+    earlier.context.database.db
+      .prepare("UPDATE sessions SET started_at = ? WHERE id = ?")
+      .run("2026-07-22T00:00:01.000Z", later.id);
+    earlier.context.database.db
+      .prepare(
+        `WITH RECURSIVE counter(value) AS (
+           SELECT 0 UNION ALL SELECT value + 1 FROM counter WHERE value < 99999
+         )
+         INSERT INTO keystroke_events (
+           session_id, sequence, client_time_ms, server_time, target_char, actual_char,
+           physical_code, shift_side, modifiers_json, is_correct, is_correction,
+           backspace_count, iki_ms, feature_char, mapped_hand, mapped_finger,
+           keyboard_row, zone, character_class, content_mode, text_position,
+           is_word_boundary, is_after_error, was_refocus, was_paused, was_long_pause,
+           was_throttled, was_repeat
+         )
+         SELECT ?, value, value * 180, '2026-07-22T01:00:00.000Z', 'a', 'a',
+                'KeyA', 'none', '{}', 1, 0, 0, 180, 'a', 'left', 'left-pinky',
+                'home', 'left-pinky', 'lowercase', 'common-english', 0,
+                0, 0, 0, 0, 0, 0, 0
+         FROM counter`
+      )
+      .run(later.id);
+
+    const startedAt = performance.now();
+    earlier.context.database.ingestEvents(
+      earlier.sessionId,
+      randomUUID(),
+      [
+        eventFor(0, "a", 0, {
+          actualChar: "s",
+          physicalCode: "KeyS",
+          isCorrect: false,
+          ikiMs: 900
+        })
+      ],
+      earlier.lessonId,
+      earlier.blockId
+    );
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(elapsedMs).toBeLessThan(5_000);
+    expect(
+      earlier.context.database.db
+        .prepare(
+          `SELECT sample_count, current_streak FROM feature_stats
+           WHERE profile_id = 'local-profile' AND feature_type = 'key' AND feature_value = 'a'`
+        )
+        .get()
+    ).toEqual({ sample_count: 100_001, current_streak: 100_000 });
+  }, 15_000);
 });

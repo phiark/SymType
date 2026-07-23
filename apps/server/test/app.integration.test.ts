@@ -393,6 +393,8 @@ describe.sequential("SymType local server integration", () => {
         accuracy: 0.75,
         keystrokeAccuracy: 0.75,
         finalTextAccuracy: 1,
+        rawWpm: 4.8,
+        netWpm: 4.8,
         activeMs: 10_000,
         longestAccurateStreak: 2
       }
@@ -444,6 +446,7 @@ describe.sequential("SymType local server integration", () => {
         stable_wpm: number | null;
         timing_samples: number;
       };
+      trend: { character_count: number; raw_wpm: number; net_wpm: number }[];
       features: { feature_type: string; feature_value: string; sample_count: number }[];
     }>();
     expect(stats.overview).toMatchObject({
@@ -452,13 +455,81 @@ describe.sequential("SymType local server integration", () => {
       characters: 4,
       correct: 3,
       errors: 1,
-      net_wpm: 0,
       keystroke_accuracy: 0.75,
       consistency: null,
       stable_wpm: null,
       timing_samples: 2
     });
     expect(stats.overview.raw_wpm).toBeCloseTo(4.8);
+    expect(stats.overview.net_wpm).toBeCloseTo(4.8);
+    expect(stats.trend).toHaveLength(1);
+    expect(stats.trend[0]).toMatchObject({ character_count: 4 });
+    expect(stats.trend[0]?.raw_wpm).toBeCloseTo(4.8);
+    expect(stats.trend[0]?.net_wpm).toBeCloseTo(4.8);
+
+    const storedMetricSummary = JSON.parse(
+      context.database.db
+        .prepare("SELECT summary_json FROM sessions WHERE id = ?")
+        .pluck()
+        .get(session.id) as string
+    ) as Record<string, unknown>;
+    expect(storedMetricSummary).toMatchObject({ metricVersion: 1, uncorrectedErrors: 0 });
+    const legacySummary: Record<string, unknown> = { ...storedMetricSummary, netWpm: 0 };
+    delete legacySummary.metricVersion;
+    delete legacySummary.uncorrectedErrors;
+    context.database.db
+      .prepare("UPDATE sessions SET summary_json = ? WHERE id = ?")
+      .run(JSON.stringify(legacySummary), session.id);
+    const withLegacySummary = context.database.getStatistics("all") as {
+      overview: { raw_wpm: number; net_wpm: number };
+    };
+    expect(withLegacySummary.overview.raw_wpm).toBeCloseTo(4.8);
+    expect(withLegacySummary.overview.net_wpm).toBeCloseTo(4.8);
+
+    const legacyRetry = await context.app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${session.id}/complete`,
+      headers: mutationHeaders(context),
+      payload: { activeMs: 99_999 }
+    });
+    expect(legacyRetry.statusCode).toBe(200);
+    expect(legacyRetry.json()).toMatchObject({ summary: { activeMs: 10_000, netWpm: 4.8 } });
+    const legacySession = await context.app.inject({
+      method: "GET",
+      url: `/api/v1/sessions/${session.id}`,
+      headers: { host: HOST }
+    });
+    expect(
+      JSON.parse(legacySession.json<{ session: { summary_json: string } }>().session.summary_json)
+    ).toMatchObject({ activeMs: 10_000, netWpm: 4.8 });
+    expect(context.database.getDashboard()).toMatchObject({
+      lastSession: { summary: { activeMs: 10_000, netWpm: 4.8 } }
+    });
+    expect(context.database.exportCsv().split("\n")[1]).toContain('"4.8","4.8"');
+    context.database.updateSettings({ experimentEnabled: true });
+    const legacyExperiment = context.database.getStatistics("all") as {
+      experiment: { groups: { strategy: string; netWpm: number | null }[] };
+    };
+    expect(
+      legacyExperiment.experiment.groups.find((group) => group.strategy === "adaptive")?.netWpm
+    ).toBe(4.8);
+    expect(
+      JSON.parse(
+        context.database.db
+          .prepare("SELECT summary_json FROM sessions WHERE id = ?")
+          .pluck()
+          .get(session.id) as string
+      )
+    ).toMatchObject({ netWpm: 0 });
+
+    context.database.db
+      .prepare("UPDATE sessions SET summary_json = NULL WHERE id = ?")
+      .run(session.id);
+    const withoutStoredSummary = context.database.getStatistics("all") as {
+      overview: { raw_wpm: number; net_wpm: number };
+    };
+    expect(withoutStoredSummary.overview.raw_wpm).toBeCloseTo(4.8);
+    expect(withoutStoredSummary.overview.net_wpm).toBeCloseTo(4.8);
     expect(
       stats.features.find(
         (feature) => feature.feature_type === "key" && feature.feature_value === "b"
@@ -470,6 +541,106 @@ describe.sequential("SymType local server integration", () => {
     expect(
       context.database.db.prepare("SELECT COUNT(*) AS count FROM event_batches").get()
     ).toEqual({ count: 1 });
+  });
+
+  test("aggregates period net WPM from total active time and final uncorrected errors", async () => {
+    const context = await openApp();
+    const sessionIds: string[] = [];
+    const inputs = [
+      { activeMs: 60_000, wrongFinalCharacter: false },
+      { activeMs: 10_000, wrongFinalCharacter: true }
+    ];
+
+    for (const [sessionIndex, input] of inputs.entries()) {
+      const session = await createSession(context, {
+        seed: 120 + sessionIndex,
+        includeInModel: false
+      });
+      sessionIds.push(session.id);
+      const block = createFixtureBlock(context, session, "a".repeat(10));
+      const accepted = await context.app.inject({
+        method: "POST",
+        url: `/api/v1/sessions/${session.id}/events`,
+        headers: mutationHeaders(context),
+        payload: eventPayload(
+          session,
+          block,
+          Array.from({ length: 10 }, (_, sequence) =>
+            event(sequence, "a", input.wrongFinalCharacter && sequence === 9 ? "s" : "a", {
+              textPosition: sequence
+            })
+          )
+        )
+      });
+      expect(accepted.statusCode).toBe(200);
+      const completed = await context.app.inject({
+        method: "POST",
+        url: `/api/v1/sessions/${session.id}/complete`,
+        headers: mutationHeaders(context),
+        payload: { activeMs: input.activeMs }
+      });
+      expect(completed.statusCode).toBe(200);
+    }
+
+    const statistics = context.database.getStatistics("all") as {
+      overview: {
+        sessions: number;
+        active_ms: number;
+        characters: number;
+        errors: number;
+        raw_wpm: number;
+        net_wpm: number;
+      };
+      trend: { raw_wpm: number; net_wpm: number }[];
+    };
+    expect(statistics.overview).toMatchObject({
+      sessions: 2,
+      active_ms: 70_000,
+      characters: 20,
+      errors: 1
+    });
+    expect(statistics.overview.raw_wpm).toBeCloseTo(24 / 7);
+    expect(statistics.overview.net_wpm).toBeCloseTo(18 / 7);
+    expect(statistics.overview.net_wpm).toBeLessThanOrEqual(statistics.overview.raw_wpm);
+    expect(statistics.trend).toHaveLength(1);
+    expect(statistics.trend[0]?.raw_wpm).toBeCloseTo(24 / 7);
+    expect(statistics.trend[0]?.net_wpm).toBeCloseTo(18 / 7);
+
+    const dashboard = context.database.getDashboard() as {
+      today: { net_wpm: number };
+      trend: { net_wpm: number }[];
+    };
+    expect(dashboard.today.net_wpm).toBeCloseTo(18 / 7);
+    expect(dashboard.trend.at(-1)?.net_wpm).toBeCloseTo(18 / 7);
+    const persistedDaily = context.database.db
+      .prepare(
+        `SELECT raw_wpm, net_wpm FROM daily_summaries
+         WHERE profile_id = 'local-profile' AND kind = 'training'`
+      )
+      .get() as { raw_wpm: number; net_wpm: number };
+    expect(persistedDaily.raw_wpm).toBeCloseTo(24 / 7);
+    expect(persistedDaily.net_wpm).toBeCloseTo(18 / 7);
+
+    for (const sessionId of sessionIds) {
+      const stored = JSON.parse(
+        context.database.db
+          .prepare("SELECT summary_json FROM sessions WHERE id = ?")
+          .pluck()
+          .get(sessionId) as string
+      ) as Record<string, unknown>;
+      delete stored.metricVersion;
+      delete stored.uncorrectedErrors;
+      stored.netWpm = 0;
+      context.database.db
+        .prepare("UPDATE sessions SET summary_json = ? WHERE id = ?")
+        .run(JSON.stringify(stored), sessionId);
+    }
+    const legacyStatistics = context.database.getStatistics("all") as typeof statistics;
+    expect(legacyStatistics.overview.net_wpm).toBeCloseTo(18 / 7);
+    expect(legacyStatistics.trend[0]?.net_wpm).toBeCloseTo(18 / 7);
+    const legacyDashboard = context.database.getDashboard() as typeof dashboard;
+    expect(legacyDashboard.today.net_wpm).toBeCloseTo(18 / 7);
+    expect(legacyDashboard.trend.at(-1)?.net_wpm).toBeCloseTo(18 / 7);
   });
 
   test("15 persisted events remain 15 characters across dashboard and period analytics", async () => {
@@ -513,6 +684,138 @@ describe.sequential("SymType local server integration", () => {
     expect(
       context.database.db.prepare("SELECT COUNT(*) AS count FROM keystroke_events").get()
     ).toEqual({ count: target.length });
+  });
+
+  test("persists trailing correction checkpoints in completed and abandoned summaries", async () => {
+    const context = await openApp();
+
+    for (const disposition of ["complete", "abandon"] as const) {
+      const session = await createSession(context);
+      const block = createFixtureBlock(context, session, "ab");
+      const accepted = await context.app.inject({
+        method: "POST",
+        url: `/api/v1/sessions/${session.id}/events`,
+        headers: mutationHeaders(context),
+        payload: eventPayload(session, block, [
+          event(0, "a"),
+          event(1, "b", "x", { isCorrect: false })
+        ])
+      });
+      expect(accepted.statusCode).toBe(200);
+
+      if (disposition === "complete") {
+        const outOfRange = await context.app.inject({
+          method: "POST",
+          url: `/api/v1/sessions/${session.id}/complete`,
+          headers: mutationHeaders(context),
+          payload: {
+            activeMs: 30_000,
+            correctionCheckpoint: { blockId: block.id, position: 3 }
+          }
+        });
+        expect(outOfRange.statusCode).toBe(409);
+        expect(outOfRange.json()).toMatchObject({ error: { code: "STATE_CONFLICT" } });
+      }
+
+      const closed = await context.app.inject({
+        method: "POST",
+        url: `/api/v1/sessions/${session.id}/${disposition}`,
+        headers: mutationHeaders(context),
+        payload: {
+          ...(disposition === "complete" ? { activeMs: 30_000 } : {}),
+          correctionCheckpoint: { blockId: block.id, position: 1 }
+        }
+      });
+      expect(closed.statusCode).toBe(200);
+      if (disposition === "complete") {
+        const response = closed.json<{ summary: Record<string, unknown> }>();
+        expect(response).toMatchObject({
+          summary: { characters: 2, errors: 1, rawWpm: 0.8, netWpm: 0.8, finalTextAccuracy: 1 }
+        });
+        expect(response.summary).not.toHaveProperty("metricVersion");
+        expect(response.summary).not.toHaveProperty("uncorrectedErrors");
+
+        const publicSession = await context.app.inject({
+          method: "GET",
+          url: `/api/v1/sessions/${session.id}`,
+          headers: { host: HOST }
+        });
+        expect(publicSession.statusCode).toBe(200);
+        const publicSummary = JSON.parse(
+          publicSession.json<{ session: { summary_json: string } }>().session.summary_json
+        ) as Record<string, unknown>;
+        expect(publicSummary).not.toHaveProperty("metricVersion");
+        expect(publicSummary).not.toHaveProperty("uncorrectedErrors");
+
+        const publicDashboard = await context.app.inject({
+          method: "GET",
+          url: "/api/v1/dashboard",
+          headers: { host: HOST }
+        });
+        expect(publicDashboard.statusCode).toBe(200);
+        const dashboardSummary = publicDashboard.json<{
+          lastSession: { summary: Record<string, unknown> };
+        }>().lastSession.summary;
+        expect(dashboardSummary).not.toHaveProperty("metricVersion");
+        expect(dashboardSummary).not.toHaveProperty("uncorrectedErrors");
+      }
+
+      const stored = context.database.db
+        .prepare("SELECT status, summary_json FROM sessions WHERE id = ?")
+        .get(session.id) as { status: string; summary_json: string };
+      expect(stored.status).toBe(disposition === "complete" ? "completed" : "abandoned");
+      expect(JSON.parse(stored.summary_json)).toMatchObject({
+        characters: 2,
+        errors: 1,
+        netWpm: disposition === "complete" ? 0.8 : 24,
+        finalTextAccuracy: 1,
+        metricVersion: 1,
+        uncorrectedErrors: 0
+      });
+    }
+  });
+
+  test("rejects correction checkpoints for prior blocks and positions ahead of the event tail", async () => {
+    const context = await openApp();
+    const session = await createSession(context);
+    const priorBlock = createFixtureBlock(context, session, "ab");
+    const latestBlock = createFixtureBlock(context, session, "cde", 1);
+
+    const priorAccepted = await context.app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${session.id}/events`,
+      headers: mutationHeaders(context),
+      payload: eventPayload(session, priorBlock, [event(0, "a", "a", { textPosition: 0 })])
+    });
+    expect(priorAccepted.statusCode).toBe(200);
+    const latestAccepted = await context.app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${session.id}/events`,
+      headers: mutationHeaders(context),
+      payload: eventPayload(session, latestBlock, [event(1, "c", "c", { textPosition: 0 })])
+    });
+    expect(latestAccepted.statusCode).toBe(200);
+
+    for (const correctionCheckpoint of [
+      { blockId: priorBlock.id, position: 0 },
+      { blockId: latestBlock.id, position: 2 }
+    ]) {
+      const rejected = await context.app.inject({
+        method: "POST",
+        url: `/api/v1/sessions/${session.id}/complete`,
+        headers: mutationHeaders(context),
+        payload: { activeMs: 30_000, correctionCheckpoint }
+      });
+      expect(rejected.statusCode).toBe(409);
+      expect(rejected.json()).toMatchObject({ error: { code: "STATE_CONFLICT" } });
+    }
+
+    expect(
+      context.database.db
+        .prepare("SELECT status FROM sessions WHERE id = ?")
+        .pluck()
+        .get(session.id)
+    ).toBe("active");
   });
 
   test("interrupted sessions recover once, reject late events, and can be abandoned with a summary", async () => {
@@ -1157,9 +1460,73 @@ describe.sequential("SymType local server integration", () => {
       topConfusions: [{ target: "a", actual: "s", physicalCode: "KeyS", count: 1 }],
       events: [{ target: "a", actual: "s", physicalCode: "KeyS", position: 1 }]
     });
+
+    const storedSummary = JSON.parse(
+      context.database.db
+        .prepare("SELECT summary_json FROM sessions WHERE id = ?")
+        .pluck()
+        .get(session.id) as string
+    ) as Record<string, unknown>;
+    const canonicalNetWpm = Number(storedSummary.netWpm);
+    delete storedSummary.metricVersion;
+    delete storedSummary.uncorrectedErrors;
+    storedSummary.netWpm = canonicalNetWpm + 7;
+    context.database.db
+      .prepare("UPDATE sessions SET summary_json = ? WHERE id = ?")
+      .run(JSON.stringify(storedSummary), session.id);
+    context.database.db
+      .prepare("UPDATE tests SET net_wpm = ? WHERE session_id = ?")
+      .run(canonicalNetWpm + 7, session.id);
+    expect(context.database.listTests()[0]).toMatchObject({ net_wpm: canonicalNetWpm });
+    expect(
+      context.database.db
+        .prepare("SELECT net_wpm FROM tests WHERE session_id = ?")
+        .pluck()
+        .get(session.id)
+    ).toBe(canonicalNetWpm + 7);
     expect(
       context.database.db.prepare("SELECT COUNT(*) AS count FROM personal_bests").get()
     ).toEqual({ count: 2 });
+  });
+
+  test("direct formal-test completion persists a trailing Backspace checkpoint", async () => {
+    const context = await openApp();
+    const session = await createSession(context, { kind: "test", mode: "typing-test" });
+    const block = createFixtureBlock(context, session, "ab");
+    const accepted = await context.app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${session.id}/events`,
+      headers: mutationHeaders(context),
+      payload: eventPayload(session, block, [event(0, "a"), event(1, "b", "x")])
+    });
+    expect(accepted.statusCode).toBe(200);
+
+    const saved = await context.app.inject({
+      method: "POST",
+      url: "/api/v1/tests",
+      headers: mutationHeaders(context),
+      payload: {
+        sessionId: session.id,
+        durationSeconds: 30,
+        correctionCheckpoint: { blockId: block.id, position: 1 }
+      }
+    });
+
+    expect(saved.statusCode).toBe(201);
+    expect(saved.json()).toMatchObject({
+      summary: { characters: 2, errors: 1, finalTextAccuracy: 1, netWpm: 24 }
+    });
+    expect(context.database.listTests()).toEqual([
+      expect.objectContaining({ net_wpm: 24, final_text_accuracy: 1 })
+    ]);
+    expect(
+      JSON.parse(
+        context.database.db
+          .prepare("SELECT summary_json FROM sessions WHERE id = ?")
+          .pluck()
+          .get(session.id) as string
+      )
+    ).toMatchObject({ metricVersion: 1, uncorrectedErrors: 0, netWpm: 24 });
   });
 
   test("SQLite remains authoritative across app close and reopen", async () => {
@@ -1433,7 +1800,7 @@ describe.sequential("SymType local server integration", () => {
       payload: { mode: "campaign", difficulty: "standard" }
     });
     const campaignId = String(campaignResponse.json<{ run: { id: string } }>().run.id);
-    const campaignLevelOne = await levelResult(context, campaignId, "success", 0);
+    const campaignLevelOne = await levelResult(context, campaignId, "success", 0, true);
     const campaignLevelOneScore = campaignLevelOne.result.score;
     expect(campaignLevelOne.run).toMatchObject({
       current_level: 2,
@@ -1621,14 +1988,25 @@ describe.sequential("SymType local server integration", () => {
       expect(rejected.statusCode).toBe(400);
     }
 
-    const content = "<script>alert('text only')</script> alpha beta gamma delta epsilon";
+    const unsupported = await context.app.inject({
+      method: "POST",
+      url: "/api/v1/custom-texts",
+      headers: mutationHeaders(context),
+      payload: { title: "Smart punctuation", content: "plain — text", fileType: "txt" }
+    });
+    expect(unsupported.statusCode).toBe(400);
+    const unsupportedError = unsupported.json<{ error: { code: string; message: string } }>().error;
+    expect(unsupportedError.code).toBe("UNSUPPORTED_CUSTOM_TEXT_CHARACTER");
+    expect(unsupportedError.message).toMatch(/U\+2014.*ANSI US/u);
+
+    const content = "<script>alert('text only')</script>\nalpha beta gamma delta epsilon";
     const saved = await context.app.inject({
       method: "POST",
       url: "/api/v1/custom-texts",
       headers: mutationHeaders(context),
       payload: {
         title: "  Local source  ",
-        content,
+        content: content.replace(/\n/gu, "\r\n"),
         fileType: "ts",
         includeInModel: false
       }
@@ -1798,6 +2176,40 @@ describe.sequential("SymType local server integration", () => {
       payload: { readingPosition: 40, blockId: secondBlock.id }
     });
     expect(secondAdvanced.json()).toEqual({ ok: true, readingPosition: 40 });
+  });
+
+  test("legacy restored custom text remains intact but cannot create an untypeable block", async () => {
+    const context = await openApp();
+    const legacy = context.database.saveCustomText({
+      title: "Legacy Unicode",
+      content: "preserved — content",
+      fileType: "txt",
+      includeInModel: false
+    }) as { id: string };
+    const session = await createSession(context, { mode: "custom", includeInModel: false });
+
+    const response = await context.app.inject({
+      method: "POST",
+      url: `/api/v1/lessons/${session.lessonId}/blocks/next`,
+      headers: mutationHeaders(context),
+      payload: {
+        blockIndex: 0,
+        seed: 2,
+        mode: "custom",
+        length: 20,
+        focus: [],
+        customTextId: legacy.id,
+        phase: "focus"
+      }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({
+      error: { code: "UNSUPPORTED_CUSTOM_TEXT_CHARACTER" }
+    });
+    expect(context.database.getCustomText(legacy.id)).toMatchObject({
+      content: "preserved — content"
+    });
   });
 
   test("scoped blocks use the active mapping and constrain generated characters", async () => {
@@ -2502,7 +2914,8 @@ describe.sequential("SymType local server integration", () => {
     context: AppContext,
     runId: string,
     outcome: "success" | "failure",
-    alertValue: number
+    alertValue: number,
+    simulateLegacySummary = false
   ): Promise<{
     run: Record<string, unknown>;
     result: {
@@ -2593,6 +3006,21 @@ describe.sequential("SymType local server integration", () => {
       expect(summary.keystrokeAccuracy).toBeLessThan(0.9);
     }
 
+    if (simulateLegacySummary) {
+      const legacy = JSON.parse(
+        context.database.db
+          .prepare("SELECT summary_json FROM sessions WHERE id = ?")
+          .pluck()
+          .get(session.id) as string
+      ) as Record<string, unknown>;
+      delete legacy.metricVersion;
+      delete legacy.uncorrectedErrors;
+      legacy.netWpm = 0;
+      context.database.db
+        .prepare("UPDATE sessions SET summary_json = ? WHERE id = ?")
+        .run(JSON.stringify(legacy), session.id);
+    }
+
     const response = await context.app.inject({
       method: "POST",
       url: `/api/v1/game/runs/${runId}/level-result`,
@@ -2639,6 +3067,16 @@ describe.sequential("SymType local server integration", () => {
       expect(verified.result.score).toBe(expectedScore);
     } else {
       expect(verified.result.score).toBe(0);
+    }
+    if (simulateLegacySummary) {
+      const stored = JSON.parse(
+        context.database.db
+          .prepare("SELECT summary_json FROM sessions WHERE id = ?")
+          .pluck()
+          .get(session.id) as string
+      ) as Record<string, unknown>;
+      expect(stored).toMatchObject({ netWpm: 0 });
+      expect(stored).not.toHaveProperty("metricVersion");
     }
     return verified;
   }

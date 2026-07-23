@@ -22,6 +22,17 @@ Changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) categori
 
 ### Fixed
 
+- Migrations now create and verify a private pre-migration SQLite snapshot before changing an
+  existing database, including the standalone migration path.
+- The canonical `TypingSurface` and server summary/projection paths now use the shared WPM contract;
+  net WPM penalizes only final uncorrected errors, including short timed tests and read-only
+  projections of legacy history.
+- A trailing Backspace can now remove a corrected final-position error when a session is completed
+  or explicitly saved, without inventing a persisted keystroke event.
+- Custom text now normalizes line endings and rejects unsupported non-ANSI-US characters before
+  persistence while leaving historical imported content unchanged.
+- Delayed out-of-order event batches now rebuild only their affected feature models from the same
+  profile's canonical session/event order, so receive order cannot change learned statistics.
 - Populated performance statistics now measure the all-time 100k fixture instead of an empty fixed
   date/7-day mismatch.
 - Fastify event-loop evidence is collected from the actual server child process rather than the

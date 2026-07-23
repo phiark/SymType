@@ -3,7 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
@@ -33,7 +33,7 @@ function block(index: number, target: string, sourceStart?: number) {
   };
 }
 
-function renderPractice(initialEntry: string) {
+function renderPractice(initialEntry: string, kind: "training" | "test" = "training") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
@@ -41,7 +41,7 @@ function renderPractice(initialEntry: string) {
     [
       {
         element: <Outlet context={{ bootstrap: testBootstrap }} />,
-        children: [{ path: "/train/session", element: <PracticePage /> }]
+        children: [{ path: "/train/session", element: <PracticePage kind={kind} /> }]
       }
     ],
     { initialEntries: [initialEntry] }
@@ -67,6 +67,7 @@ async function typeFirstBlock() {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("PracticePage completed-block retry", () => {
@@ -146,6 +147,129 @@ describe("PracticePage completed-block retry", () => {
     expect(patch.mock.calls[0]).toEqual(patch.mock.calls[1]);
     expect(post.mock.calls.filter(([path]) => String(path).includes("/blocks/next"))).toHaveLength(
       2
+    );
+  });
+});
+
+describe("PracticePage trailing correction closure", () => {
+  const completedSummary = {
+    characters: 1,
+    correct: 1,
+    errors: 0,
+    rawWpm: 1,
+    netWpm: 1,
+    keystrokeAccuracy: 1,
+    finalTextAccuracy: 1,
+    accuracy: 1,
+    consistency: 1,
+    activeMs: 15_000,
+    longestAccurateStreak: 1,
+    feedback: { good: "ok", bottleneck: "ok", next: "ok" },
+    errorAnalysis: {
+      version: 1,
+      eventCount: 1,
+      validTimingSamples: 0,
+      baselineIkiMs: null,
+      evidence: {},
+      textIssues: [],
+      behavioralIssues: []
+    }
+  };
+
+  it("sends the trailing Backspace position when a timed test completes", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let now = 1_000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const postImplementation: typeof api.post = <T,>(path: string) => {
+      if (path === "/api/v1/sessions") return Promise.resolve(session as T);
+      if (path.includes("/blocks/next")) return Promise.resolve(block(0, "ab") as T);
+      if (path.endsWith("/events")) {
+        return Promise.resolve({ result: { accepted: 1, checkpoint: 0 } } as T);
+      }
+      if (path.endsWith("/complete")) {
+        return Promise.resolve({ saved: true, summary: completedSummary } as T);
+      }
+      if (path === "/api/v1/tests") return Promise.resolve({ test: {} } as T);
+      return Promise.reject(new Error(`unexpected POST ${path}`));
+    };
+    const post = vi.spyOn(api, "post").mockImplementation(postImplementation);
+
+    renderPractice("/train/session?mode=test&seconds=15&seed=17", "test");
+    fireEvent.click(screen.getByRole("button", { name: /^开始/u }));
+    const surface = await screen.findByRole("textbox", { name: "打字练习输入区" });
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    fireEvent.keyDown(surface, { key: "Backspace", code: "Backspace" });
+
+    now = 16_100;
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        `/api/v1/sessions/${session.session.id}/complete`,
+        expect.objectContaining({
+          correctionCheckpoint: { blockId: block(0, "ab").block.id, position: 0 }
+        })
+      )
+    );
+  });
+
+  it("sends the trailing Backspace position when explicitly saving and exiting", async () => {
+    const postImplementation: typeof api.post = <T,>(path: string) => {
+      if (path === "/api/v1/sessions") return Promise.resolve(session as T);
+      if (path.includes("/blocks/next")) return Promise.resolve(block(0, "ab") as T);
+      if (path.endsWith("/events")) {
+        return Promise.resolve({ result: { accepted: 1, checkpoint: 0 } } as T);
+      }
+      if (path.endsWith("/pause") || path.endsWith("/abandon")) {
+        return Promise.resolve({ ok: true } as T);
+      }
+      return Promise.reject(new Error(`unexpected POST ${path}`));
+    };
+    const post = vi.spyOn(api, "post").mockImplementation(postImplementation);
+
+    renderPractice("/train/session?mode=smart&duration=5&seed=19");
+    fireEvent.click(screen.getByRole("button", { name: /^开始/u }));
+    const surface = await screen.findByRole("textbox", { name: "打字练习输入区" });
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    fireEvent.keyDown(surface, { key: "Backspace", code: "Backspace" });
+    fireEvent.keyDown(surface, { key: "Escape", code: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: "保存并退出" }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(`/api/v1/sessions/${session.session.id}/abandon`, {
+        correctionCheckpoint: { blockId: block(0, "ab").block.id, position: 0 }
+      })
+    );
+  });
+
+  it("sends a zero-position checkpoint when saving immediately after a manual restart", async () => {
+    const postImplementation: typeof api.post = <T,>(path: string) => {
+      if (path === "/api/v1/sessions") return Promise.resolve(session as T);
+      if (path.includes("/blocks/next")) return Promise.resolve(block(0, "ab") as T);
+      if (path.endsWith("/events")) {
+        return Promise.resolve({ result: { accepted: 1, checkpoint: 0 } } as T);
+      }
+      if (path.endsWith("/pause") || path.endsWith("/abandon")) {
+        return Promise.resolve({ ok: true } as T);
+      }
+      return Promise.reject(new Error(`unexpected POST ${path}`));
+    };
+    const post = vi.spyOn(api, "post").mockImplementation(postImplementation);
+
+    renderPractice("/train/session?mode=smart&duration=5&seed=23");
+    fireEvent.click(screen.getByRole("button", { name: /^开始/u }));
+    const surface = await screen.findByRole("textbox", { name: "打字练习输入区" });
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    fireEvent.click(screen.getByRole("button", { name: "重开当前微组" }));
+    fireEvent.keyDown(surface, { key: "Escape", code: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: "保存并退出" }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(`/api/v1/sessions/${session.session.id}/abandon`, {
+        correctionCheckpoint: { blockId: block(0, "ab").block.id, position: 0 }
+      })
     );
   });
 });

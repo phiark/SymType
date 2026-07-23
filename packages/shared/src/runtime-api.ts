@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  describeUnsupportedCustomTextCharacter,
+  findUnsupportedCustomTextCharacter,
+  normalizeCustomTextContent
+} from "./custom-text.js";
+
 /**
  * Authoritative contracts for the current same-origin `/api/v1` runtime.
  *
@@ -424,8 +430,13 @@ export const runtimePauseSessionResponseSchema = z.object({
   ok: z.literal(true),
   status: z.enum(["paused", "active"])
 });
+export const runtimeCorrectionCheckpointSchema = z.object({
+  blockId: runtimeUuidSchema,
+  position: z.number().int().nonnegative().max(1_000_000)
+});
 export const runtimeCompleteSessionRequestSchema = z.object({
-  activeMs: z.number().int().nonnegative().max(43_200_000).optional()
+  activeMs: z.number().int().nonnegative().max(43_200_000).optional(),
+  correctionCheckpoint: runtimeCorrectionCheckpointSchema.optional()
 });
 
 const runtimeErrorAnalysisEvidenceSchema = z.object({
@@ -486,7 +497,8 @@ export const runtimeSessionFeedbackResponseSchema = z.object({
 });
 export const runtimeRecoverSessionRequestSchema = z.object({
   disposition: z.enum(["complete", "abandon"]).default("complete"),
-  activeMs: z.number().int().nonnegative().max(43_200_000).optional()
+  activeMs: z.number().int().nonnegative().max(43_200_000).optional(),
+  correctionCheckpoint: runtimeCorrectionCheckpointSchema.optional()
 });
 export const runtimeRecoverSessionResponseSchema = z
   .object({
@@ -495,6 +507,9 @@ export const runtimeRecoverSessionResponseSchema = z
     summary: runtimeSessionSummarySchema
   })
   .passthrough();
+export const runtimeAbandonSessionRequestSchema = z.object({
+  correctionCheckpoint: runtimeCorrectionCheckpointSchema.optional()
+});
 export const runtimeOkResponseSchema = z.object({ ok: z.literal(true) }).passthrough();
 
 export const runtimeNextBlockSchema = z.object({
@@ -814,7 +829,8 @@ export const runtimeTestsResponseSchema = z.object({ tests: z.array(runtimeTestR
 export const runtimeCreateTestRequestSchema = z
   .object({
     sessionId: runtimeUuidSchema,
-    durationSeconds: z.number().int().min(15).max(3600)
+    durationSeconds: z.number().int().min(15).max(3600),
+    correctionCheckpoint: runtimeCorrectionCheckpointSchema.optional()
   })
   .strict();
 export const runtimeCreateTestResponseSchema = z.object({
@@ -960,14 +976,34 @@ export const runtimeCustomTextsResponseSchema = z.object({
 export const runtimeCustomTextResponseSchema = z.object({
   text: runtimeCustomTextDetailRecordSchema
 });
-export const runtimeCreateCustomTextRequestSchema = z
-  .object({
-    title: z.string().trim().min(1).max(160),
-    content: z
+export const runtimeCustomTextContentSchema = z
+  .string()
+  .transform(normalizeCustomTextContent)
+  .pipe(
+    z
       .string()
       .min(1)
       .max(1_000_000)
-      .refine((content) => content.trim().length > 0 && !content.includes("\0")),
+      .superRefine((content, context) => {
+        if (content.trim().length === 0) {
+          context.addIssue({
+            code: "custom",
+            message: "自定义文本必须包含至少一个可练习字符。"
+          });
+        }
+        const unsupported = findUnsupportedCustomTextCharacter(content);
+        if (unsupported) {
+          context.addIssue({
+            code: "custom",
+            message: describeUnsupportedCustomTextCharacter(unsupported)
+          });
+        }
+      })
+  );
+export const runtimeCreateCustomTextRequestSchema = z
+  .object({
+    title: z.string().trim().min(1).max(160),
+    content: runtimeCustomTextContentSchema,
     fileType: z.enum(["txt", "md", "json", "js", "ts"]),
     includeInModel: z.boolean().default(false)
   })
@@ -1217,6 +1253,7 @@ export const runtimeApiContracts: readonly RuntimeApiContract[] = [
     method: "POST",
     path: /^\/api\/v1\/sessions\/(?<id>[^/]+)\/abandon$/u,
     params: runtimeUuidIdParamsSchema,
+    request: runtimeAbandonSessionRequestSchema,
     response: runtimeOkResponseSchema
   },
   {
@@ -1482,6 +1519,7 @@ export type RuntimeStoredEvent = z.infer<typeof runtimeStoredEventSchema>;
 export type RuntimeEventBatch = z.infer<typeof runtimeEventBatchSchema>;
 export type RuntimeBootstrapData = z.infer<typeof runtimeBootstrapResponseSchema>;
 export type RuntimeSessionSummary = z.infer<typeof runtimeSessionSummarySchema>;
+export type RuntimeCorrectionCheckpoint = z.infer<typeof runtimeCorrectionCheckpointSchema>;
 export type RuntimeStatistics = z.infer<typeof runtimeStatisticsResponseSchema>;
 export type RuntimeDashboard = z.infer<typeof runtimeDashboardResponseSchema>;
 export type RuntimeTraditionalProgress = z.infer<typeof runtimeTraditionalProgressResponseSchema>;

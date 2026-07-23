@@ -1,4 +1,5 @@
 export * from "./error-classification.js";
+export * from "./custom-text.js";
 export * from "./feature-stats.js";
 export * from "./game-state.js";
 export * from "./keyboard-layout.js";

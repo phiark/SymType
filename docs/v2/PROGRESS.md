@@ -83,3 +83,33 @@ Gate 0 is complete. Gate 1 is active.
 ### Gate result
 
 Gate 1 is complete. Gate 2 is active.
+
+## 2026-07-23: Gate 2 through bootstrap delivery
+
+- Recorded the deterministic empty/100k five-fragment baseline, actual Fastify child event-loop
+  evidence, Chromium/WebKit typing path, production bundle, and the focused 100k product smoke.
+- Cancelled Gate 3 optimization because the measured local single-user paths showed no
+  release-blocking hotspot. Completed the bounded visual/accessibility and dead-source convergence
+  work for Gates 4 and 5.
+- Kept Gate 6 externally blocked because the official ASD-STE100 Issue 9 PDF is still unavailable.
+- PR #2 passed its release evidence and CI, used the one-time V2-D013 bootstrap approval waiver, and
+  was squash-merged to `main` as `a10e9a8`. This paragraph records history; the normal independent
+  review gate applies to later work.
+
+## 2026-07-23: Issue #3 local Gate 7 closure
+
+- V2-D014 authorized corrections for five confirmed implementation defects without adding or
+  removing a user function: pre-migration recovery snapshots, receive-order-independent feature
+  repair, canonical net-WPM/final-error projections, trailing-Backspace completion checkpoints, and
+  new-custom-text ANSI-US validation.
+- Supported Node.js 22.16.0 `npm run check` passed lint, strict type checks, 62 Vitest files with 452
+  tests passed and one intentional skip, and all four production builds. The separate literal
+  regression suite passed all eight files and 22 tests; the focused seven-file data-safety replay
+  passed 34 tests.
+- The final production replay collected 74 Chromium/WebKit cases and passed 73 with one intentional
+  duplicated lifecycle-owner skip in 8.0 minutes. The isolated launcher and deterministic 100k
+  Today/course/Analytics smoke also passed.
+- The local Gate 7 evidence is complete. Commits `59f4275` and `df9f123` were pushed from
+  `fix/3-review-correctness-gaps`, and linked ready-for-review PR #4 now records the live external
+  workflow. At this publication checkpoint its final-head CI, independent approval, resolved
+  conversations, and squash merge remain; Gate 6 is the separate external documentation blocker.

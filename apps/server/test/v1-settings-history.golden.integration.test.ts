@@ -118,21 +118,21 @@ describe.sequential("V1 server settings and history goldens", () => {
         accuracy: dashboard.lastSession.summary.accuracy
       }
     }).toEqual({
-      today: { active_ms: 6_000, sessions: 1, characters: 3, accuracy: 2 / 3, net_wpm: 5 },
+      today: { active_ms: 6_000, sessions: 1, characters: 3, accuracy: 2 / 3, net_wpm: 0 },
       trend: [
         {
           local_date: "2025-02-14",
           active_ms: 6_000,
           characters: 3,
           accuracy: 2 / 3,
-          net_wpm: 5
+          net_wpm: 0
         }
       ],
       lastSession: {
         completedAt: "2025-02-14T08:00:00.000Z",
         characters: 3,
         rawWpm: 6,
-        netWpm: 5,
+        netWpm: 0,
         accuracy: 0.6667
       }
     });
@@ -169,9 +169,9 @@ describe.sequential("V1 server settings and history goldens", () => {
           kind: "test",
           active_ms: 6_000,
           character_count: 3,
-          net_wpm: 5,
-          raw_wpm: 6,
-          accuracy: 0.6667,
+          net_wpm: 0,
+          raw_wpm: 5.999999999999999,
+          accuracy: 0.6666666666666666,
           consistency: 1
         }
       ],
@@ -204,7 +204,7 @@ describe.sequential("V1 server settings and history goldens", () => {
         session_id: "<session-id>",
         duration_seconds: 30,
         raw_wpm: 6,
-        net_wpm: 5,
+        net_wpm: 0,
         accuracy: 0.6667,
         consistency: 1,
         errors_json: {
@@ -226,7 +226,7 @@ describe.sequential("V1 server settings and history goldens", () => {
         .all()
     ).toEqual([
       { category: "test-accuracy:30", value: 0.6667 },
-      { category: "test-net-wpm:30", value: 5 }
+      { category: "test-net-wpm:30", value: 0 }
     ]);
   });
 });

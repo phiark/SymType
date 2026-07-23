@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -19,6 +20,8 @@ import {
 import {
   characterForPhysicalKey,
   getKeyByCode,
+  netWpm as calculateNetWpm,
+  rawWpm as calculateRawWpm,
   persistedFeatureWindowSchema,
   persistedGameLevelSummarySchema,
   persistedJsonObjectSchema,
@@ -32,7 +35,9 @@ import {
   runtimeSettingsSchema,
   SYMMETRIC_PRESET,
   type KeyboardPreset,
+  type PersistedSessionSummary,
   type PersistedTestErrors,
+  type RuntimeCorrectionCheckpoint,
   type RuntimeSettings,
   type RuntimeStoredEvent
 } from "@symtype/shared";
@@ -49,6 +54,7 @@ import {
   calculateSessionSummary,
   isErrorAnalysisSummary,
   mergeErrorAnalysis,
+  summarizeFinalText,
   type ErrorAnalysisSummary,
   type SessionSummary,
   type SummaryEventRow
@@ -284,6 +290,46 @@ const RESTORE_DELETE_ORDER = [
   "profiles"
 ] as const;
 
+const SQLITE_SNAPSHOT_TABLES = ["schema_migrations", ...BACKUP_TABLES, "backups"] as const;
+const PRE_MIGRATION_SNAPSHOTS_PER_PATH = 2;
+
+interface CanonicalSessionMetric {
+  id: string;
+  kind: string;
+  activeMs: number;
+  completedAt: string;
+  localDate: string;
+  characters: number;
+  correct: number;
+  uncorrectedErrors: number;
+  consistency: number;
+}
+
+interface CanonicalMetricAggregate {
+  sessions: number;
+  active_ms: number;
+  characters: number;
+  correct: number;
+  errors: number;
+  uncorrected_errors: number;
+  raw_wpm: number;
+  net_wpm: number;
+  accuracy: number;
+  consistency: number;
+}
+
+interface CanonicalDailyMetric extends CanonicalMetricAggregate {
+  local_date: string;
+  kind: string;
+  character_count: number;
+  correct_count: number;
+}
+
+interface CanonicalizedSessionSummary {
+  summary: PersistedSessionSummary;
+  uncorrectedErrors: number;
+}
+
 function sessionPreset(snapshotJson: string | null): KeyboardPreset {
   if (!snapshotJson) return SYMMETRIC_PRESET;
   const snapshot = parsePersistedJson(
@@ -351,6 +397,25 @@ function authoritativeContentMode(
   return session.mode;
 }
 
+function sessionSummaryForPersistence(
+  summary: SessionSummary,
+  rows: readonly SummaryEventRow[],
+  correctionCheckpoint?: RuntimeCorrectionCheckpoint
+): PersistedSessionSummary {
+  return persistedSessionSummarySchema.parse({
+    ...summary,
+    metricVersion: 1,
+    uncorrectedErrors: summarizeFinalText(rows, correctionCheckpoint).uncorrectedErrors
+  });
+}
+
+function publicSessionSummary(summary: PersistedSessionSummary): SessionSummary {
+  const publicSummary = { ...summary };
+  delete publicSummary.metricVersion;
+  delete publicSummary.uncorrectedErrors;
+  return publicSummary;
+}
+
 export class SymTypeDatabase {
   readonly db: Database.Database;
   readonly config: ServerConfig;
@@ -378,21 +443,35 @@ export class SymTypeDatabase {
   }
 
   private migrate(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        version INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        applied_at TEXT NOT NULL
-      );
-    `);
+    const migrationTableExists = this.db
+      .prepare(
+        `SELECT 1 FROM sqlite_master
+         WHERE type = 'table' AND name = 'schema_migrations'`
+      )
+      .get();
+    if (!migrationTableExists) {
+      this.db.exec(`
+        CREATE TABLE schema_migrations (
+          version INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          applied_at TEXT NOT NULL
+        );
+      `);
+    }
     const applied = new Set(
       this.db
         .prepare("SELECT version FROM schema_migrations ORDER BY version")
         .all()
         .map((row) => (row as { version: number }).version)
     );
-    for (const migration of migrations) {
-      if (applied.has(migration.version)) continue;
+    const pending = migrations.filter((migration) => !applied.has(migration.version));
+    if (applied.size > 0 && pending.length > 0) {
+      const fromVersion = Math.max(...applied);
+      const toVersion = pending.at(-1)?.version;
+      if (toVersion == null) throw new Error("Pending migration target is missing");
+      this.createPreMigrationSnapshot(fromVersion, toVersion);
+    }
+    for (const migration of pending) {
       const run = this.db.transaction(() => {
         this.db.exec(migration.sql);
         this.db
@@ -400,6 +479,171 @@ export class SymTypeDatabase {
           .run(migration.version, migration.name, now());
       });
       run();
+    }
+  }
+
+  private migrationSnapshotCounts(source: Database.Database): Record<string, number> {
+    const existingTables = new Set(
+      (
+        source.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
+          name: string;
+        }[]
+      ).map((row) => row.name)
+    );
+    const missing = SQLITE_SNAPSHOT_TABLES.filter((table) => !existingTables.has(table));
+    if (missing.length > 0) {
+      throw new Error(`Database is missing required table(s): ${missing.join(", ")}`);
+    }
+    return Object.fromEntries(
+      SQLITE_SNAPSHOT_TABLES.map((table) => [
+        table,
+        (
+          source.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as {
+            count: number;
+          }
+        ).count
+      ])
+    );
+  }
+
+  private migrationSnapshotIntegrity(
+    source: Database.Database,
+    expectedVersion: number,
+    expectedCounts: Readonly<Record<string, number>>
+  ): { ok: boolean; detail: string } {
+    try {
+      const quick = (source.pragma("quick_check") as { quick_check: string }[])
+        .map((row) => row.quick_check)
+        .join("; ");
+      const foreignKeys = source.pragma("foreign_key_check") as unknown[];
+      const version = (
+        source
+          .prepare("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations")
+          .get() as { version: number }
+      ).version;
+      const counts = this.migrationSnapshotCounts(source);
+      const mismatchedCounts = SQLITE_SNAPSHOT_TABLES.filter(
+        (table) => counts[table] !== expectedCounts[table]
+      );
+      const ok =
+        quick === "ok" &&
+        foreignKeys.length === 0 &&
+        version === expectedVersion &&
+        mismatchedCounts.length === 0;
+      return {
+        ok,
+        detail: [
+          quick,
+          ...(foreignKeys.length ? [`${foreignKeys.length} foreign-key violation(s)`] : []),
+          ...(version !== expectedVersion
+            ? [`schema version ${version}, expected ${expectedVersion}`]
+            : []),
+          ...(mismatchedCounts.length
+            ? [`row-count mismatch in ${mismatchedCounts.join(", ")}`]
+            : [])
+        ].join("; ")
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        detail: error instanceof Error ? error.message : "unreadable migration snapshot"
+      };
+    }
+  }
+
+  private createPreMigrationSnapshot(fromVersion: number, toVersion: number): void {
+    const sourceCounts = this.migrationSnapshotCounts(this.db);
+    const sourceIntegrity = this.migrationSnapshotIntegrity(this.db, fromVersion, sourceCounts);
+    if (!sourceIntegrity.ok) {
+      throw new Error(
+        `Database integrity check failed before migration backup: ${sourceIntegrity.detail}`
+      );
+    }
+
+    const id = randomUUID();
+    const stamp = new Date().toISOString().replaceAll(":", "-");
+    const reason = `pre-migration-v${fromVersion}-to-v${toVersion}`;
+    const path = join(
+      this.config.dataDir,
+      "backups",
+      `symtype-${reason}-${stamp}-${id.slice(0, 8)}.sqlite3`
+    );
+    let recorded = false;
+    try {
+      this.db.prepare("VACUUM INTO ?").run(path);
+      if (process.platform !== "win32") chmodSync(path, 0o600);
+      const snapshot = new Database(path, { readonly: true, fileMustExist: true });
+      let validation: { ok: boolean; detail: string };
+      try {
+        validation = this.migrationSnapshotIntegrity(snapshot, fromVersion, sourceCounts);
+      } finally {
+        snapshot.close();
+      }
+      if (!validation.ok) {
+        throw new Error(`Pre-migration backup integrity check failed: ${validation.detail}`);
+      }
+      const bytes = readFileSync(path);
+      this.db
+        .prepare(
+          `INSERT INTO backups(id, path, reason, byte_size, schema_version, checksum, created_at)
+           VALUES(?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(id, path, reason, bytes.length, fromVersion, sha256(bytes), now());
+      recorded = true;
+      this.prunePreMigrationSnapshots(reason, id);
+    } catch (error) {
+      if (recorded || existsSync(path)) this.removeBackupFileAndMetadata(id, path);
+      throw error;
+    }
+  }
+
+  private removeBackupFileAndMetadata(id: string, path: string): boolean {
+    try {
+      if (existsSync(path)) unlinkSync(path);
+    } catch {
+      return false;
+    }
+    try {
+      this.db.prepare("DELETE FROM backups WHERE id = ?").run(id);
+      return true;
+    } catch {
+      // The path is already gone. Keep startup and rotation non-blocking; a
+      // later pass can remove metadata that now points to a missing file.
+      return false;
+    }
+  }
+
+  private prunePreMigrationSnapshots(reason: string, requiredId: string): void {
+    const records = this.db
+      .prepare(
+        `SELECT id, path, schema_version, checksum
+         FROM backups
+         WHERE reason = ?
+         ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, created_at DESC, rowid DESC`
+      )
+      .all(reason, requiredId) as {
+      id: string;
+      path: string;
+      schema_version: number;
+      checksum: string;
+    }[];
+    let retained = 0;
+    for (const record of records) {
+      const validation = existsSync(record.path)
+        ? this.validateMigrationSnapshotFile(record.path, record.schema_version)
+        : { ok: false, detail: "missing", checksum: "" };
+      const valid = validation.ok && validation.checksum === record.checksum;
+      if (record.id === requiredId && !valid) {
+        throw new Error(`New pre-migration snapshot became invalid: ${validation.detail}`);
+      }
+      if (valid && retained < PRE_MIGRATION_SNAPSHOTS_PER_PATH) {
+        retained += 1;
+        continue;
+      }
+      // Retention is best effort after the required snapshot is verified. Keep
+      // metadata when unlink fails so a later maintenance pass can retry without
+      // sacrificing the new recovery point or blocking the pending migration.
+      this.removeBackupFileAndMetadata(record.id, record.path);
     }
   }
 
@@ -925,8 +1169,25 @@ export class SymTypeDatabase {
       ...block,
       resume_position: this.resumePosition(eventsByBlock.get(String(block.id)) ?? [])
     }));
+    const publicRow = { ...row };
+    if (typeof publicRow.summary_json === "string") {
+      const stored = parsePersistedJson(
+        publicRow.summary_json,
+        "session summary",
+        persistedSessionSummarySchema
+      );
+      publicRow.summary_json = json(
+        publicSessionSummary(
+          this.canonicalizePersistedSessionSummary(
+            sessionId,
+            Number(publicRow.active_ms ?? stored.activeMs),
+            stored
+          ).summary
+        )
+      );
+    }
     return {
-      ...row,
+      ...publicRow,
       next_sequence: nextSequence,
       lesson: lesson ? { ...lesson, blocks: blocksWithResume } : null
     };
@@ -1121,9 +1382,46 @@ export class SymTypeDatabase {
             )
           ELSE json_insert(recent_window_json, '$[#]', json_extract(excluded.recent_window_json, '$[0]'))
         END,
-        last_practiced_at = excluded.last_practiced_at,
+        last_practiced_at = CASE
+          WHEN last_practiced_at IS NULL OR last_practiced_at < excluded.last_practiced_at
+            THEN excluded.last_practiced_at
+          ELSE last_practiced_at
+        END,
         algorithm_version = excluded.algorithm_version,
-        updated_at = excluded.updated_at`
+        updated_at = MAX(updated_at, excluded.updated_at)`
+    );
+    const writeRebuiltFeature = this.db.prepare(
+      `INSERT INTO feature_stats (
+         profile_id, feature_type, feature_value, short_alpha, short_beta,
+         long_alpha, long_beta, short_iki_ms, long_iki_ms, iki_mad_ms, sample_count,
+         current_streak, recent_window_json, last_practiced_at, learning_slope,
+         algorithm_version, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, NULL, ?, ?)
+       ON CONFLICT(profile_id, feature_type, feature_value) DO UPDATE SET
+         short_alpha = excluded.short_alpha,
+         short_beta = excluded.short_beta,
+         long_alpha = excluded.long_alpha,
+         long_beta = excluded.long_beta,
+         short_iki_ms = excluded.short_iki_ms,
+         long_iki_ms = excluded.long_iki_ms,
+         iki_mad_ms = NULL,
+         sample_count = excluded.sample_count,
+         current_streak = excluded.current_streak,
+         recent_window_json = excluded.recent_window_json,
+         last_practiced_at = excluded.last_practiced_at,
+         learning_slope = NULL,
+         algorithm_version = excluded.algorithm_version,
+         updated_at = excluded.updated_at`
+    );
+    const selectModelEvents = this.db.prepare(
+      `SELECT e.feature_char, e.bigram, e.trigram, e.mapped_hand, e.mapped_finger,
+              e.keyboard_row, e.zone, e.character_class, e.content_mode, e.is_correct,
+              e.iki_ms, e.was_long_pause, e.was_refocus, e.was_paused, e.was_throttled,
+              e.was_repeat, e.server_time
+       FROM keystroke_events e
+       JOIN sessions s ON s.id = e.session_id
+       WHERE s.profile_id = ? AND s.include_in_model = 1
+       ORDER BY s.started_at, s.id, e.sequence`
     );
     const getFeatureWindow = this.db.prepare(
       `SELECT recent_window_json FROM feature_stats
@@ -1137,15 +1435,18 @@ export class SymTypeDatabase {
     const transaction = this.db.transaction(() => {
       const session = this.db
         .prepare(
-          `SELECT id, kind, mode, status, include_in_model, layout_snapshot_json
+          `SELECT id, profile_id, kind, mode, status, started_at, include_in_model,
+                  layout_snapshot_json
            FROM sessions WHERE id = ?`
         )
         .get(sessionId) as
         | {
             id: string;
+            profile_id: string;
             kind: string;
             mode: string;
             status: string;
+            started_at: string;
             include_in_model: number;
             layout_snapshot_json: string | null;
           }
@@ -1188,6 +1489,29 @@ export class SymTypeDatabase {
       const findSequence = this.db.prepare(
         "SELECT 1 FROM keystroke_events WHERE session_id = ? AND sequence = ?"
       );
+      const previousMaximum = this.db
+        .prepare("SELECT MAX(sequence) AS maximum FROM keystroke_events WHERE session_id = ?")
+        .get(sessionId) as { maximum: number | null };
+      const laterCanonicalModelSession = this.db
+        .prepare(
+          `SELECT 1
+           FROM sessions later
+           WHERE later.profile_id = ? AND later.include_in_model = 1
+             AND (
+               later.started_at > ?
+               OR (later.started_at = ? AND later.id > ?)
+             )
+             AND EXISTS (
+               SELECT 1 FROM keystroke_events event
+               WHERE event.session_id = later.id
+             )
+           LIMIT 1`
+        )
+        .get(session.profile_id, session.started_at, session.started_at, session.id);
+      const repairsFeatureOrder =
+        session.include_in_model === 1 &&
+        ((previousMaximum.maximum != null && first.sequence < previousMaximum.maximum) ||
+          laterCanonicalModelSession != null);
       const correctnessAtSequence = this.db.prepare(
         "SELECT is_correct FROM keystroke_events WHERE session_id = ? AND sequence = ?"
       );
@@ -1324,10 +1648,12 @@ export class SymTypeDatabase {
         ];
         for (const [featureType, featureValue] of featurePairs) {
           if (!featureValue || featureValue === "unknown") continue;
+          touchedFeatures.set(`${featureType}\0${featureValue}`, [featureType, featureValue]);
+          if (repairsFeatureOrder) continue;
           const alpha = isCorrect ? 3 : 2;
           const beta = isCorrect ? 1 : 2;
           updateFeature.run(
-            LOCAL_PROFILE_ID,
+            session.profile_id,
             featureType,
             featureValue,
             alpha,
@@ -1342,11 +1668,144 @@ export class SymTypeDatabase {
             ALGORITHM_VERSION,
             receiveTime
           );
-          touchedFeatures.set(`${featureType}\0${featureValue}`, [featureType, featureValue]);
+        }
+      }
+      if (repairsFeatureOrder && touchedFeatures.size > 0) {
+        type ModelEventRow = {
+          feature_char: string;
+          bigram: string | null;
+          trigram: string | null;
+          mapped_hand: string;
+          mapped_finger: string;
+          keyboard_row: string;
+          zone: string;
+          character_class: string;
+          content_mode: string;
+          is_correct: number;
+          iki_ms: number | null;
+          was_long_pause: number;
+          was_refocus: number;
+          was_paused: number;
+          was_throttled: number;
+          was_repeat: number;
+          server_time: string;
+        };
+        type RebuiltFeature = {
+          featureType: string;
+          featureValue: string;
+          shortAlpha: number;
+          shortBeta: number;
+          longAlpha: number;
+          longBeta: number;
+          shortIkiMs: number | null;
+          longIkiMs: number | null;
+          sampleCount: number;
+          currentStreak: number;
+          recentWindow: number[];
+          lastPracticedAt: string;
+          updatedAt: string;
+        };
+        const modelEvents = selectModelEvents.all(session.profile_id) as ModelEventRow[];
+        const rebuiltFeatures = new Map<string, RebuiltFeature>();
+        for (const row of modelEvents) {
+          const eligibleIki =
+            row.is_correct === 1 &&
+            row.was_long_pause === 0 &&
+            row.was_refocus === 0 &&
+            row.was_paused === 0 &&
+            row.was_throttled === 0 &&
+            row.was_repeat === 0 &&
+            row.iki_ms != null &&
+            row.iki_ms >= 25 &&
+            row.iki_ms <= 3000
+              ? row.iki_ms
+              : null;
+          const pairs: [string, string | null][] = [
+            ["key", row.feature_char],
+            ["bigram", row.bigram],
+            ["trigram", row.trigram],
+            ["finger", row.mapped_finger],
+            ["hand", row.mapped_hand],
+            ["row", row.keyboard_row],
+            ["zone", row.zone],
+            ["class", row.character_class],
+            ["content-mode", row.content_mode]
+          ];
+          for (const [featureType, featureValue] of pairs) {
+            if (!featureValue || featureValue === "unknown") continue;
+            const key = `${featureType}\0${featureValue}`;
+            if (!touchedFeatures.has(key)) continue;
+            const isCorrect = row.is_correct === 1;
+            const recentValue = isCorrect ? (eligibleIki ?? 1) : 0;
+            const current = rebuiltFeatures.get(key);
+            if (!current) {
+              rebuiltFeatures.set(key, {
+                featureType,
+                featureValue,
+                shortAlpha: isCorrect ? 3 : 2,
+                shortBeta: isCorrect ? 1 : 2,
+                longAlpha: isCorrect ? 3 : 2,
+                longBeta: isCorrect ? 1 : 2,
+                shortIkiMs: eligibleIki,
+                longIkiMs: eligibleIki,
+                sampleCount: 1,
+                currentStreak: isCorrect ? 1 : 0,
+                recentWindow: [recentValue],
+                lastPracticedAt: row.server_time,
+                updatedAt: row.server_time
+              });
+              continue;
+            }
+            current.shortAlpha = 2 + (current.shortAlpha - 2) * 0.995 + (isCorrect ? 1 : 0);
+            current.shortBeta = 1 + (current.shortBeta - 1) * 0.995 + (isCorrect ? 0 : 1);
+            current.longAlpha += isCorrect ? 1 : 0;
+            current.longBeta += isCorrect ? 0 : 1;
+            if (eligibleIki != null) {
+              current.shortIkiMs =
+                current.shortIkiMs == null
+                  ? eligibleIki
+                  : current.shortIkiMs * 0.82 + eligibleIki * 0.18;
+              current.longIkiMs =
+                current.longIkiMs == null
+                  ? eligibleIki
+                  : current.longIkiMs * 0.96 + eligibleIki * 0.04;
+            }
+            current.sampleCount += 1;
+            current.currentStreak = isCorrect ? current.currentStreak + 1 : 0;
+            if (current.recentWindow.length >= 40) current.recentWindow.shift();
+            current.recentWindow.push(recentValue);
+            if (row.server_time > current.lastPracticedAt) {
+              current.lastPracticedAt = row.server_time;
+            }
+            if (row.server_time > current.updatedAt) current.updatedAt = row.server_time;
+          }
+        }
+        for (const [key, [featureType]] of touchedFeatures) {
+          const feature = rebuiltFeatures.get(key);
+          if (!feature) {
+            throw new Error(`Canonical model rebuild found no evidence for ${featureType}`);
+          }
+          writeRebuiltFeature.run(
+            session.profile_id,
+            feature.featureType,
+            feature.featureValue,
+            feature.shortAlpha,
+            feature.shortBeta,
+            feature.longAlpha,
+            feature.longBeta,
+            feature.shortIkiMs,
+            feature.longIkiMs,
+            feature.sampleCount,
+            feature.currentStreak,
+            json(feature.recentWindow),
+            feature.lastPracticedAt,
+            ALGORITHM_VERSION,
+            feature.updatedAt
+          );
         }
       }
       for (const [featureType, featureValue] of touchedFeatures.values()) {
-        const row = getFeatureWindow.get(LOCAL_PROFILE_ID, featureType, featureValue) as {
+        const row = getFeatureWindow.get(session.profile_id, featureType, featureValue) as {
           recent_window_json: string;
         };
         const window = parsePersistedJson(
@@ -1358,7 +1817,7 @@ export class SymTypeDatabase {
         updateFeatureRobustValues.run(
           medianAbsoluteDeviation(recentIkis),
           robustLearningSlope(recentIkis),
-          LOCAL_PROFILE_ID,
+          session.profile_id,
           featureType,
           featureValue
         );
@@ -1398,14 +1857,86 @@ export class SymTypeDatabase {
     if (result.changes !== 1) throw new Error("Active session not found");
   }
 
-  completeSession(sessionId: string, activeMs?: number): SessionSummary {
+  private validateCorrectionCheckpoint(
+    sessionId: string,
+    checkpoint?: RuntimeCorrectionCheckpoint
+  ): RuntimeCorrectionCheckpoint | undefined {
+    if (!checkpoint) return undefined;
+    const block = this.db
+      .prepare(
+        `SELECT LENGTH(b.target_text) AS target_length
+         FROM micro_blocks b
+         JOIN lessons l ON l.id = b.lesson_id
+         WHERE b.id = ? AND l.session_id = ?`
+      )
+      .get(checkpoint.blockId, sessionId) as { target_length: number } | undefined;
+    if (!block) throw new Error("Correction checkpoint does not belong to session");
+    if (checkpoint.position > block.target_length) {
+      throw new Error("Correction checkpoint does not belong to the micro-block bounds");
+    }
+    const latestEvent = this.db
+      .prepare(
+        `SELECT block_id
+         FROM keystroke_events
+         WHERE session_id = ?
+         ORDER BY sequence DESC
+         LIMIT 1`
+      )
+      .get(sessionId) as { block_id: string | null } | undefined;
+    if (!latestEvent?.block_id || latestEvent.block_id !== checkpoint.blockId) {
+      throw new Error("Correction checkpoint does not belong to the latest event micro-block");
+    }
+    const events = this.db
+      .prepare(
+        `SELECT text_position, backspace_count
+         FROM keystroke_events
+         WHERE session_id = ? AND block_id = ?
+         ORDER BY sequence`
+      )
+      .all(sessionId, checkpoint.blockId) as {
+      text_position: number;
+      backspace_count: number;
+    }[];
+    const positions = new Set<number>();
+    for (const event of events) {
+      if (event.backspace_count > 0) {
+        for (const position of positions) {
+          if (position >= event.text_position) positions.delete(position);
+        }
+      }
+      positions.add(event.text_position);
+    }
+    let reconstructedTail = 0;
+    while (positions.has(reconstructedTail)) reconstructedTail += 1;
+    if (checkpoint.position >= reconstructedTail) {
+      throw new Error("Correction checkpoint does not belong to the reconstructed event tail");
+    }
+    return checkpoint;
+  }
+
+  completeSession(
+    sessionId: string,
+    activeMs?: number,
+    correctionCheckpoint?: RuntimeCorrectionCheckpoint
+  ): SessionSummary {
     const rows = this.getSummaryEventRows(sessionId);
     const errorAnalysis = this.buildSessionErrorAnalysis(sessionId, rows);
     const session = this.db
-      .prepare("SELECT kind, mode, started_at, status FROM sessions WHERE id = ?")
+      .prepare(
+        "SELECT kind, mode, started_at, status, active_ms, summary_json FROM sessions WHERE id = ?"
+      )
       .get(sessionId) as
-      { kind: string; mode: string; started_at: string; status: string } | undefined;
+      | {
+          kind: string;
+          mode: string;
+          started_at: string;
+          status: string;
+          active_ms: number;
+          summary_json: string | null;
+        }
+      | undefined;
     if (!session) throw new Error("Session not found");
+    const validatedCheckpoint = this.validateCorrectionCheckpoint(sessionId, correctionCheckpoint);
     if (session.mode === "long-form") {
       const lessons = this.db
         .prepare("SELECT id FROM lessons WHERE session_id = ?")
@@ -1413,71 +1944,37 @@ export class SymTypeDatabase {
       for (const lesson of lessons) this.advanceBuiltInLongFormProgressFromEvidence(lesson.id);
     }
     if (session.status === "completed") {
-      const existing = this.db
-        .prepare("SELECT summary_json FROM sessions WHERE id = ?")
-        .get(sessionId) as { summary_json: string };
-      const recalculated = calculateSessionSummary(rows, activeMs, errorAnalysis);
+      if (!session.summary_json) throw new Error("Completed session summary is missing");
       const stored = parsePersistedJson(
-        existing.summary_json,
+        session.summary_json,
         "session summary",
         persistedSessionSummarySchema
       );
-      return {
-        ...recalculated,
-        ...stored,
-        keystrokeAccuracy: stored.keystrokeAccuracy ?? stored.accuracy ?? recalculated.accuracy,
-        finalTextAccuracy: stored.finalTextAccuracy ?? recalculated.finalTextAccuracy,
-        errorAnalysis: stored.errorAnalysis ?? recalculated.errorAnalysis
-      };
+      return publicSessionSummary(
+        this.canonicalizePersistedSessionSummary(sessionId, session.active_ms, stored, rows).summary
+      );
     }
     if (session.status === "abandoned") throw new Error("Session is already abandoned");
-    const summary = calculateSessionSummary(rows, activeMs, errorAnalysis);
+    const summary = calculateSessionSummary(rows, activeMs, errorAnalysis, validatedCheckpoint);
     const timestamp = now();
-    const completedLocalDate = localDate();
+    const completedLocalDate = localDate(new Date(timestamp));
     const complete = this.db.transaction(() => {
       this.db
         .prepare(
           `UPDATE sessions SET status = 'completed', completed_at = ?, active_ms = ?, summary_json = ?
            WHERE id = ?`
         )
-        .run(timestamp, summary.activeMs, json(summary), sessionId);
+        .run(
+          timestamp,
+          summary.activeMs,
+          json(sessionSummaryForPersistence(summary, rows, validatedCheckpoint)),
+          sessionId
+        );
       this.db
         .prepare("UPDATE lessons SET completed_at = COALESCE(completed_at, ?) WHERE session_id = ?")
         .run(timestamp, sessionId);
       if (summary.characters > 0) {
-        this.db
-          .prepare(
-            `INSERT INTO daily_summaries
-           (profile_id, local_date, kind, active_ms, session_count, character_count, correct_count,
-            raw_wpm, net_wpm, accuracy, consistency)
-           VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(profile_id, local_date, kind) DO UPDATE SET
-             active_ms = active_ms + excluded.active_ms,
-             session_count = session_count + 1,
-             character_count = character_count + excluded.character_count,
-             correct_count = correct_count + excluded.correct_count,
-             raw_wpm = (raw_wpm * character_count + excluded.raw_wpm * excluded.character_count)
-                       / MAX(1, character_count + excluded.character_count),
-             net_wpm = (net_wpm * character_count + excluded.net_wpm * excluded.character_count)
-                       / MAX(1, character_count + excluded.character_count),
-             accuracy = CAST(correct_count + excluded.correct_count AS REAL)
-                        / MAX(1, character_count + excluded.character_count),
-             consistency = (consistency * character_count
-                            + excluded.consistency * excluded.character_count)
-                           / MAX(1, character_count + excluded.character_count)`
-          )
-          .run(
-            LOCAL_PROFILE_ID,
-            completedLocalDate,
-            session.kind,
-            summary.activeMs,
-            summary.characters,
-            summary.correct,
-            summary.rawWpm,
-            summary.netWpm,
-            summary.accuracy,
-            summary.consistency
-          );
+        this.rebuildPersistedDailySummary(timestamp, session.kind);
         this.updateStreak(completedLocalDate);
       }
     });
@@ -1488,7 +1985,8 @@ export class SymTypeDatabase {
   recoverSession(
     sessionId: string,
     disposition: "complete" | "abandon" = "complete",
-    activeMs?: number
+    activeMs?: number,
+    correctionCheckpoint?: RuntimeCorrectionCheckpoint
   ): { recovered: true; status: "completed" | "abandoned"; summary: SessionSummary } {
     const session = this.db
       .prepare("SELECT status, active_ms, summary_json FROM sessions WHERE id = ?")
@@ -1496,35 +1994,42 @@ export class SymTypeDatabase {
       { status: string; active_ms: number; summary_json: string | null } | undefined;
     if (!session) throw new Error("Session not found");
     if (session.status === "completed") {
-      return { recovered: true, status: "completed", summary: this.completeSession(sessionId) };
+      return {
+        recovered: true,
+        status: "completed",
+        summary: this.completeSession(sessionId, undefined, correctionCheckpoint)
+      };
     }
 
     const rows = this.getSummaryEventRows(sessionId);
     const errorAnalysis = this.buildSessionErrorAnalysis(sessionId, rows);
+    const validatedCheckpoint = this.validateCorrectionCheckpoint(sessionId, correctionCheckpoint);
     const recalculated = calculateSessionSummary(
       rows,
       activeMs ?? (session.active_ms > 0 ? session.active_ms : undefined),
-      errorAnalysis
+      errorAnalysis,
+      validatedCheckpoint
     );
     if (session.status === "abandoned") {
       const stored = session.summary_json
         ? parsePersistedJson(session.summary_json, "session summary", persistedSessionSummarySchema)
         : null;
       const summary: SessionSummary = stored
-        ? {
-            ...recalculated,
-            ...stored,
-            keystrokeAccuracy: stored.keystrokeAccuracy,
-            finalTextAccuracy: stored.finalTextAccuracy,
-            errorAnalysis: stored.errorAnalysis
-          }
+        ? publicSessionSummary(
+            this.canonicalizePersistedSessionSummary(sessionId, session.active_ms, stored, rows)
+              .summary
+          )
         : recalculated;
       if (!session.summary_json) {
         this.db
           .prepare(
             "UPDATE sessions SET active_ms = ?, summary_json = ? WHERE id = ? AND status = 'abandoned'"
           )
-          .run(summary.activeMs, json(summary), sessionId);
+          .run(
+            summary.activeMs,
+            json(sessionSummaryForPersistence(summary, rows, validatedCheckpoint)),
+            sessionId
+          );
       }
       return { recovered: true, status: "abandoned", summary };
     }
@@ -1533,7 +2038,7 @@ export class SymTypeDatabase {
       return {
         recovered: true,
         status: "completed",
-        summary: this.completeSession(sessionId, activeMs)
+        summary: this.completeSession(sessionId, activeMs, validatedCheckpoint)
       };
     }
 
@@ -1544,7 +2049,12 @@ export class SymTypeDatabase {
           `UPDATE sessions SET status = 'abandoned', completed_at = ?, active_ms = ?, summary_json = ?
            WHERE id = ? AND status IN ('active','paused')`
         )
-        .run(timestamp, recalculated.activeMs, json(recalculated), sessionId);
+        .run(
+          timestamp,
+          recalculated.activeMs,
+          json(sessionSummaryForPersistence(recalculated, rows, validatedCheckpoint)),
+          sessionId
+        );
       if (result.changes !== 1) throw new Error("Session is already closed");
       this.db
         .prepare("UPDATE lessons SET completed_at = COALESCE(completed_at, ?) WHERE session_id = ?")
@@ -1554,8 +2064,8 @@ export class SymTypeDatabase {
     return { recovered: true, status: "abandoned", summary: recalculated };
   }
 
-  abandonSession(sessionId: string): void {
-    this.recoverSession(sessionId, "abandon");
+  abandonSession(sessionId: string, correctionCheckpoint?: RuntimeCorrectionCheckpoint): void {
+    this.recoverSession(sessionId, "abandon", undefined, correctionCheckpoint);
   }
 
   private buildSessionErrorAnalysis(
@@ -1596,6 +2106,38 @@ export class SymTypeDatabase {
       .all(sessionId) as SummaryEventRow[];
   }
 
+  private canonicalizePersistedSessionSummary(
+    sessionId: string,
+    activeMs: number,
+    stored: PersistedSessionSummary,
+    existingRows?: readonly SummaryEventRow[]
+  ): CanonicalizedSessionSummary {
+    if (stored.metricVersion === 1 && typeof stored.uncorrectedErrors === "number") {
+      return {
+        summary: stored,
+        uncorrectedErrors: stored.uncorrectedErrors
+      };
+    }
+
+    const rows = existingRows ?? this.getSummaryEventRows(sessionId);
+    if (rows.length === 0) {
+      return {
+        summary: stored,
+        uncorrectedErrors: stored.errors
+      };
+    }
+    const finalText = summarizeFinalText(rows);
+    const canonical = calculateSessionSummary(rows, activeMs, stored.errorAnalysis);
+    return {
+      summary: persistedSessionSummarySchema.parse({
+        ...stored,
+        rawWpm: canonical.rawWpm,
+        netWpm: canonical.netWpm
+      }),
+      uncorrectedErrors: finalText.uncorrectedErrors
+    };
+  }
+
   private updateStreak(localDate: string): void {
     const row = this.db
       .prepare(
@@ -1620,6 +2162,164 @@ export class SymTypeDatabase {
       .run(currentDays, currentDays, localDate, LOCAL_PROFILE_ID);
   }
 
+  private getCanonicalSessionMetrics(since: string, before?: string): CanonicalSessionMetric[] {
+    const rows = this.db
+      .prepare(
+        `SELECT s.id, s.kind, s.active_ms, s.completed_at, s.summary_json,
+                COUNT(e.id) AS characters, COALESCE(SUM(e.is_correct), 0) AS correct
+         FROM sessions s JOIN keystroke_events e ON e.session_id = s.id
+         WHERE s.profile_id = ? AND s.status = 'completed' AND s.completed_at >= ?
+           ${before ? "AND s.completed_at < ?" : ""}
+         GROUP BY s.id
+         ORDER BY s.completed_at, s.id`
+      )
+      .all(...(before ? [LOCAL_PROFILE_ID, since, before] : [LOCAL_PROFILE_ID, since])) as {
+      id: string;
+      kind: string;
+      active_ms: number;
+      completed_at: string;
+      summary_json: string | null;
+      characters: number;
+      correct: number;
+    }[];
+
+    return rows.map((row) => {
+      const stored = row.summary_json
+        ? parsePersistedJson(row.summary_json, "session summary", persistedSessionSummarySchema)
+        : null;
+      const canonical = stored
+        ? this.canonicalizePersistedSessionSummary(row.id, row.active_ms, stored)
+        : null;
+      const rowsWithoutSummary = canonical ? null : this.getSummaryEventRows(row.id);
+      const uncorrectedErrors =
+        canonical?.uncorrectedErrors ??
+        summarizeFinalText(rowsWithoutSummary ?? []).uncorrectedErrors;
+      const consistency =
+        canonical?.summary.consistency ??
+        calculateSessionSummary(rowsWithoutSummary ?? [], row.active_ms).consistency;
+      const completedAt = new Date(row.completed_at);
+      if (!Number.isFinite(completedAt.getTime())) {
+        throw new Error("Completed session has an invalid completion timestamp");
+      }
+      return {
+        id: row.id,
+        kind: row.kind,
+        activeMs: row.active_ms,
+        completedAt: row.completed_at,
+        localDate: localDate(completedAt),
+        characters: row.characters,
+        correct: row.correct,
+        uncorrectedErrors,
+        consistency
+      };
+    });
+  }
+
+  private aggregateCanonicalMetrics(
+    sessions: readonly CanonicalSessionMetric[]
+  ): CanonicalMetricAggregate {
+    const totals = sessions.reduce(
+      (result, session) => ({
+        sessions: result.sessions + 1,
+        active_ms: result.active_ms + session.activeMs,
+        characters: result.characters + session.characters,
+        correct: result.correct + session.correct,
+        uncorrected_errors: result.uncorrected_errors + session.uncorrectedErrors,
+        consistency_weight: result.consistency_weight + session.consistency * session.characters
+      }),
+      {
+        sessions: 0,
+        active_ms: 0,
+        characters: 0,
+        correct: 0,
+        uncorrected_errors: 0,
+        consistency_weight: 0
+      }
+    );
+    return {
+      sessions: totals.sessions,
+      active_ms: totals.active_ms,
+      characters: totals.characters,
+      correct: totals.correct,
+      errors: totals.characters - totals.correct,
+      uncorrected_errors: totals.uncorrected_errors,
+      raw_wpm: calculateRawWpm(totals.characters, totals.active_ms),
+      net_wpm: calculateNetWpm(totals.characters, totals.uncorrected_errors, totals.active_ms),
+      accuracy: totals.characters > 0 ? totals.correct / totals.characters : 0,
+      consistency: totals.characters > 0 ? totals.consistency_weight / totals.characters : 0
+    };
+  }
+
+  private canonicalDailyMetrics(
+    sessions: readonly CanonicalSessionMetric[]
+  ): CanonicalDailyMetric[] {
+    const grouped = new Map<string, CanonicalSessionMetric[]>();
+    for (const session of sessions) {
+      const key = `${session.localDate}\0${session.kind}`;
+      const values = grouped.get(key) ?? [];
+      values.push(session);
+      grouped.set(key, values);
+    }
+    return [...grouped.entries()]
+      .map(([key, values]) => {
+        const separator = key.indexOf("\0");
+        const aggregate = this.aggregateCanonicalMetrics(values);
+        return {
+          local_date: key.slice(0, separator),
+          kind: key.slice(separator + 1),
+          ...aggregate,
+          character_count: aggregate.characters,
+          correct_count: aggregate.correct
+        };
+      })
+      .sort(
+        (left, right) =>
+          left.local_date.localeCompare(right.local_date) || left.kind.localeCompare(right.kind)
+      );
+  }
+
+  private rebuildPersistedDailySummary(completedAt: string, kind: string): void {
+    const completed = new Date(completedAt);
+    const start = new Date(completed);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    const date = localDate(completed);
+    const daily = this.canonicalDailyMetrics(
+      this.getCanonicalSessionMetrics(start.toISOString(), end.toISOString())
+    ).find((candidate) => candidate.local_date === date && candidate.kind === kind);
+    if (!daily) return;
+    this.db
+      .prepare(
+        `INSERT INTO daily_summaries
+         (profile_id, local_date, kind, active_ms, session_count, character_count, correct_count,
+          raw_wpm, net_wpm, accuracy, consistency)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(profile_id, local_date, kind) DO UPDATE SET
+           active_ms = excluded.active_ms,
+           session_count = excluded.session_count,
+           character_count = excluded.character_count,
+           correct_count = excluded.correct_count,
+           raw_wpm = excluded.raw_wpm,
+           net_wpm = excluded.net_wpm,
+           accuracy = excluded.accuracy,
+           consistency = excluded.consistency`
+      )
+      .run(
+        LOCAL_PROFILE_ID,
+        daily.local_date,
+        daily.kind,
+        daily.active_ms,
+        daily.sessions,
+        daily.character_count,
+        daily.correct_count,
+        daily.raw_wpm,
+        daily.net_wpm,
+        daily.accuracy,
+        daily.consistency
+      );
+  }
+
   getDashboard(): Record<string, unknown> {
     const today = localDate();
     const goal = this.db.prepare("SELECT * FROM goals WHERE id = 'primary-goal'").get() as Record<
@@ -1629,32 +2329,38 @@ export class SymTypeDatabase {
     const streak = this.db
       .prepare("SELECT * FROM streaks WHERE profile_id = ?")
       .get(LOCAL_PROFILE_ID);
-    const todaySummary = this.db
-      .prepare(
-        `SELECT COALESCE(SUM(active_ms), 0) AS active_ms,
-                COALESCE(SUM(session_count), 0) AS sessions,
-                COALESCE(SUM(character_count), 0) AS characters,
-                CASE WHEN SUM(character_count) > 0
-                     THEN CAST(SUM(correct_count) AS REAL) / SUM(character_count) ELSE 0 END AS accuracy,
-                CASE WHEN SUM(character_count) > 0
-                     THEN SUM(net_wpm * character_count) / SUM(character_count) ELSE 0 END AS net_wpm
-         FROM daily_summaries WHERE profile_id = ? AND local_date = ?`
-      )
-      .get(LOCAL_PROFILE_ID, today) as Record<string, unknown>;
     const trendStart = new Date();
     trendStart.setHours(0, 0, 0, 0);
     trendStart.setDate(trendStart.getDate() - 13);
-    const trend = this.db
-      .prepare(
-        `SELECT local_date, SUM(active_ms) AS active_ms, SUM(character_count) AS characters,
-                CASE WHEN SUM(character_count) > 0
-                     THEN CAST(SUM(correct_count) AS REAL) / SUM(character_count) ELSE 0 END AS accuracy,
-                CASE WHEN SUM(character_count) > 0
-                     THEN SUM(net_wpm * character_count) / SUM(character_count) ELSE 0 END AS net_wpm
-         FROM daily_summaries WHERE profile_id = ? AND local_date >= ?
-         GROUP BY local_date ORDER BY local_date`
-      )
-      .all(LOCAL_PROFILE_ID, localDate(trendStart));
+    const recentSessions = this.getCanonicalSessionMetrics(trendStart.toISOString());
+    const todayAggregate = this.aggregateCanonicalMetrics(
+      recentSessions.filter((session) => session.localDate === today)
+    );
+    const todaySummary = {
+      active_ms: todayAggregate.active_ms,
+      sessions: todayAggregate.sessions,
+      characters: todayAggregate.characters,
+      accuracy: todayAggregate.accuracy,
+      net_wpm: todayAggregate.net_wpm
+    };
+    const sessionsByDate = new Map<string, CanonicalSessionMetric[]>();
+    for (const session of recentSessions) {
+      const values = sessionsByDate.get(session.localDate) ?? [];
+      values.push(session);
+      sessionsByDate.set(session.localDate, values);
+    }
+    const trend = [...sessionsByDate.entries()]
+      .map(([date, sessions]) => {
+        const aggregate = this.aggregateCanonicalMetrics(sessions);
+        return {
+          local_date: date,
+          active_ms: aggregate.active_ms,
+          characters: aggregate.characters,
+          accuracy: aggregate.accuracy,
+          net_wpm: aggregate.net_wpm
+        };
+      })
+      .sort((left, right) => left.local_date.localeCompare(right.local_date));
     const weaknesses = this.db
       .prepare(
         `SELECT feature_type, feature_value, sample_count,
@@ -1669,11 +2375,12 @@ export class SymTypeDatabase {
       .all(LOCAL_PROFILE_ID);
     const lastSession = this.db
       .prepare(
-        `SELECT completed_at, summary_json FROM sessions
+        `SELECT id, active_ms, completed_at, summary_json FROM sessions
          WHERE profile_id = ? AND status = 'completed' AND summary_json IS NOT NULL
          ORDER BY completed_at DESC LIMIT 1`
       )
-      .get(LOCAL_PROFILE_ID) as { completed_at: string; summary_json: string } | undefined;
+      .get(LOCAL_PROFILE_ID) as
+      { id: string; active_ms: number; completed_at: string; summary_json: string } | undefined;
     const latestRetest = this.db
       .prepare(
         `SELECT b.id AS block_id, s.completed_at, s.mode, l.focus_json,
@@ -1756,10 +2463,16 @@ export class SymTypeDatabase {
       lastSession: lastSession
         ? {
             completedAt: lastSession.completed_at,
-            summary: parsePersistedJson(
-              lastSession.summary_json,
-              "session summary",
-              persistedSessionSummarySchema
+            summary: publicSessionSummary(
+              this.canonicalizePersistedSessionSummary(
+                lastSession.id,
+                lastSession.active_ms,
+                parsePersistedJson(
+                  lastSession.summary_json,
+                  "session summary",
+                  persistedSessionSummarySchema
+                )
+              ).summary
             )
           }
         : null,
@@ -1833,29 +2546,14 @@ export class SymTypeDatabase {
   getStatistics(period: "today" | "7d" | "30d" | "all"): Record<string, unknown> {
     const bounds = periodBounds(period);
     const since = bounds.instant;
-    const overviewCounts = this.db
-      .prepare(
-        `WITH selected_sessions AS (
-           SELECT s.id, s.active_ms FROM sessions s
-           WHERE s.profile_id = ? AND s.completed_at >= ? AND s.status = 'completed'
-             AND EXISTS (SELECT 1 FROM keystroke_events e WHERE e.session_id = s.id)
-         ), event_totals AS (
-           SELECT COUNT(e.id) AS characters, COALESCE(SUM(e.is_correct), 0) AS correct
-           FROM keystroke_events e JOIN selected_sessions s ON s.id = e.session_id
-         )
-         SELECT (SELECT COUNT(*) FROM selected_sessions) AS sessions,
-                COALESCE((SELECT SUM(active_ms) FROM selected_sessions), 0) AS active_ms,
-                event_totals.characters,
-                event_totals.correct,
-                event_totals.characters - event_totals.correct AS errors
-         FROM event_totals`
-      )
-      .get(LOCAL_PROFILE_ID, since) as {
-      sessions: number;
-      active_ms: number;
-      characters: number;
-      correct: number;
-      errors: number;
+    const selectedSessions = this.getCanonicalSessionMetrics(since);
+    const canonicalOverview = this.aggregateCanonicalMetrics(selectedSessions);
+    const overviewCounts = {
+      sessions: canonicalOverview.sessions,
+      active_ms: canonicalOverview.active_ms,
+      characters: canonicalOverview.characters,
+      correct: canonicalOverview.correct,
+      errors: canonicalOverview.errors
     };
     const timingValues = (
       this.db
@@ -1871,10 +2569,8 @@ export class SymTypeDatabase {
     ).map((row) => row.iki_ms);
     const timingCenter = median(timingValues);
     const timingMad = medianAbsoluteDeviation(timingValues);
-    const activeMinutes = overviewCounts.active_ms / 60_000;
-    const rawWpm = activeMinutes > 0 ? overviewCounts.characters / 5 / activeMinutes : null;
-    const netWpm =
-      rawWpm == null ? null : Math.max(0, rawWpm - overviewCounts.errors / activeMinutes);
+    const rawWpm = overviewCounts.active_ms > 0 ? canonicalOverview.raw_wpm : null;
+    const netWpm = overviewCounts.active_ms > 0 ? canonicalOverview.net_wpm : null;
     const overview = {
       ...overviewCounts,
       raw_wpm: rawWpm,
@@ -1891,13 +2587,16 @@ export class SymTypeDatabase {
           : null,
       timing_samples: timingValues.length
     };
-    const trend = this.db
-      .prepare(
-        `SELECT local_date, kind, active_ms, character_count, net_wpm, raw_wpm, accuracy, consistency
-         FROM daily_summaries WHERE profile_id = ? AND local_date >= ?
-         ORDER BY local_date, kind`
-      )
-      .all(LOCAL_PROFILE_ID, bounds.localDate);
+    const trend = this.canonicalDailyMetrics(selectedSessions).map((daily) => ({
+      local_date: daily.local_date,
+      kind: daily.kind,
+      active_ms: daily.active_ms,
+      character_count: daily.character_count,
+      net_wpm: daily.net_wpm,
+      raw_wpm: daily.raw_wpm,
+      accuracy: daily.accuracy,
+      consistency: daily.consistency
+    }));
     const features = this.buildPeriodFeatures(since);
     const confusion = this.db
       .prepare(
@@ -2043,7 +2742,15 @@ export class SymTypeDatabase {
       status: session.status,
       activeMs: session.active_ms,
       summary: session.summary_json
-        ? parsePersistedJson(session.summary_json, "session summary", persistedSessionSummarySchema)
+        ? this.canonicalizePersistedSessionSummary(
+            session.id,
+            session.active_ms,
+            parsePersistedJson(
+              session.summary_json,
+              "session summary",
+              persistedSessionSummarySchema
+            )
+          ).summary
         : null,
       startedAt: session.started_at,
       completedAt: session.completed_at
@@ -2146,11 +2853,30 @@ export class SymTypeDatabase {
   listTests(): Record<string, unknown>[] {
     const rows = this.db
       .prepare(
-        `SELECT t.*, s.mode FROM tests t JOIN sessions s ON s.id = t.session_id
+        `SELECT t.*, s.mode, s.active_ms AS session_active_ms,
+                s.summary_json AS session_summary_json
+         FROM tests t JOIN sessions s ON s.id = t.session_id
          ORDER BY t.created_at DESC LIMIT 100`
       )
-      .all() as (Record<string, unknown> & { errors_json: string })[];
+      .all() as (Record<string, unknown> & {
+      session_id: string;
+      errors_json: string;
+      session_active_ms: number;
+      session_summary_json: string | null;
+    })[];
     return rows.map((row) => {
+      const { session_active_ms, session_summary_json, ...testRow } = row;
+      const summary = session_summary_json
+        ? this.canonicalizePersistedSessionSummary(
+            row.session_id,
+            session_active_ms,
+            parsePersistedJson(
+              session_summary_json,
+              "session summary",
+              persistedSessionSummarySchema
+            )
+          ).summary
+        : null;
       let errorsValid = false;
       try {
         errorsValid = persistedTestErrorsSchema.safeParse(
@@ -2160,7 +2886,11 @@ export class SymTypeDatabase {
         // Preserve the row so the client can identify this one damaged detail record. The
         // authoritative integrity check still reports the corruption and blocks backup creation.
       }
-      return { ...row, errors_valid: errorsValid };
+      return {
+        ...testRow,
+        ...(summary ? { raw_wpm: summary.rawWpm, net_wpm: summary.netWpm } : {}),
+        errors_valid: errorsValid
+      };
     });
   }
 
@@ -2975,17 +3705,35 @@ export class SymTypeDatabase {
   }
 
   exportCsv(): string {
-    const rows = this.db
+    const storedRows = this.db
       .prepare(
-        `SELECT s.kind, s.mode, s.started_at, s.completed_at, s.active_ms,
-                json_extract(s.summary_json, '$.rawWpm') AS raw_wpm,
-                json_extract(s.summary_json, '$.netWpm') AS net_wpm,
-                json_extract(s.summary_json, '$.accuracy') AS accuracy,
-                json_extract(s.summary_json, '$.consistency') AS consistency,
-                json_extract(s.summary_json, '$.characters') AS characters
+        `SELECT s.id, s.kind, s.mode, s.started_at, s.completed_at, s.active_ms, s.summary_json
          FROM sessions s WHERE s.status = 'completed' ORDER BY s.started_at`
       )
-      .all() as Record<string, string | number | null>[];
+      .all() as (Record<string, string | number | null> & {
+      id: string;
+      active_ms: number;
+      summary_json: string | null;
+    })[];
+    const rows: Record<string, string | number | null>[] = storedRows.map(
+      ({ id, summary_json, ...row }) => {
+        const summary = summary_json
+          ? this.canonicalizePersistedSessionSummary(
+              id,
+              row.active_ms,
+              parsePersistedJson(summary_json, "session summary", persistedSessionSummarySchema)
+            ).summary
+          : null;
+        return {
+          ...row,
+          raw_wpm: summary?.rawWpm ?? null,
+          net_wpm: summary?.netWpm ?? null,
+          accuracy: summary?.accuracy ?? null,
+          consistency: summary?.consistency ?? null,
+          characters: summary?.characters ?? null
+        };
+      }
+    );
     const headers = [
       "kind",
       "mode",
@@ -3076,7 +3824,7 @@ export class SymTypeDatabase {
         const validation = this.validateBackupFile(latest.path);
         if (validation.ok && validation.checksum === latest.checksum) return null;
       }
-      this.db.prepare("DELETE FROM backups WHERE id = ?").run(latest.id);
+      this.removeBackupFileAndMetadata(latest.id, latest.path);
     }
     return this.createBackup("automatic-startup");
   }
@@ -3089,22 +3837,54 @@ export class SymTypeDatabase {
 
   private rotateBackups(keep: number): void {
     const records = this.db
-      .prepare("SELECT id, path, checksum FROM backups ORDER BY created_at DESC")
-      .all() as { id: string; path: string; checksum: string }[];
+      .prepare(
+        `SELECT id, path, reason, schema_version, checksum
+         FROM backups ORDER BY created_at DESC`
+      )
+      .all() as {
+      id: string;
+      path: string;
+      reason: string;
+      schema_version: number;
+      checksum: string;
+    }[];
     const valid: typeof records = [];
     for (const record of records) {
       const validation = existsSync(record.path)
-        ? this.validateBackupFile(record.path)
+        ? record.reason.startsWith("pre-migration-v")
+          ? this.validateMigrationSnapshotFile(record.path, record.schema_version)
+          : this.validateBackupFile(record.path)
         : { ok: false, detail: "missing", checksum: "" };
       if (!validation.ok || validation.checksum !== record.checksum) {
-        this.db.prepare("DELETE FROM backups WHERE id = ?").run(record.id);
+        this.removeBackupFileAndMetadata(record.id, record.path);
         continue;
       }
       valid.push(record);
     }
     for (const extra of valid.slice(keep)) {
-      if (existsSync(extra.path)) unlinkSync(extra.path);
-      this.db.prepare("DELETE FROM backups WHERE id = ?").run(extra.id);
+      this.removeBackupFileAndMetadata(extra.id, extra.path);
+    }
+  }
+
+  private validateMigrationSnapshotFile(
+    path: string,
+    expectedVersion: number
+  ): { ok: boolean; detail: string; checksum: string } {
+    let snapshot: Database.Database | undefined;
+    try {
+      const bytes = readFileSync(path);
+      snapshot = new Database(path, { readonly: true, fileMustExist: true });
+      const counts = this.migrationSnapshotCounts(snapshot);
+      const integrity = this.migrationSnapshotIntegrity(snapshot, expectedVersion, counts);
+      return { ...integrity, checksum: sha256(bytes) };
+    } catch (error) {
+      return {
+        ok: false,
+        detail: error instanceof Error ? error.message : "unreadable migration snapshot",
+        checksum: ""
+      };
+    } finally {
+      snapshot?.close();
     }
   }
 

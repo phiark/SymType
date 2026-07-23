@@ -2,7 +2,9 @@ import {
   assessShiftUse,
   classifyBehavioralIssues,
   classifyTextErrors,
+  netWpm as calculateNetWpm,
   persistedModifiersSchema,
+  rawWpm as calculateRawWpm,
   type BehavioralIssueKind,
   type Finger,
   type Hand,
@@ -58,6 +60,17 @@ export interface SessionSummary {
   longestAccurateStreak: number;
   feedback: { good: string; bottleneck: string; next: string };
   errorAnalysis: ErrorAnalysisSummary;
+}
+
+export interface SessionCorrectionCheckpoint {
+  blockId: string;
+  position: number;
+}
+
+export interface FinalTextSummary {
+  characters: number;
+  correct: number;
+  uncorrectedErrors: number;
 }
 
 export interface SummaryEventRow {
@@ -228,6 +241,40 @@ export function isErrorAnalysisSummary(value: unknown): value is ErrorAnalysisSu
     Array.isArray((value as { textIssues?: unknown }).textIssues) &&
     Array.isArray((value as { behavioralIssues?: unknown }).behavioralIssues)
   );
+}
+
+export function summarizeFinalText(
+  rows: readonly SummaryEventRow[],
+  correctionCheckpoint?: SessionCorrectionCheckpoint
+): FinalTextSummary {
+  const finalByScope = new Map<string, Map<number, { target_char: string; actual_char: string }>>();
+  for (const row of rows) {
+    const scope = row.block_id ?? "session";
+    const positions =
+      finalByScope.get(scope) ?? new Map<number, { target_char: string; actual_char: string }>();
+    if (row.is_correction || row.backspace_count > 0) {
+      for (const position of positions.keys()) {
+        if (position >= row.text_position) positions.delete(position);
+      }
+    }
+    positions.set(row.text_position, row);
+    finalByScope.set(scope, positions);
+  }
+  if (correctionCheckpoint) {
+    const positions = finalByScope.get(correctionCheckpoint.blockId);
+    if (positions) {
+      for (const position of positions.keys()) {
+        if (position >= correctionCheckpoint.position) positions.delete(position);
+      }
+    }
+  }
+  const finalPositions = [...finalByScope.values()].flatMap((positions) => [...positions.values()]);
+  const correct = finalPositions.filter((row) => row.actual_char === row.target_char).length;
+  return {
+    characters: finalPositions.length,
+    correct,
+    uncorrectedErrors: finalPositions.length - correct
+  };
 }
 
 export function classifyAlignedText(
@@ -462,7 +509,8 @@ export function analyzeSessionErrors(input: {
 export function calculateSessionSummary(
   rows: readonly SummaryEventRow[],
   givenActiveMs?: number,
-  errorAnalysis: ErrorAnalysisSummary = unavailableErrorAnalysis(rows.length)
+  errorAnalysis: ErrorAnalysisSummary = unavailableErrorAnalysis(rows.length),
+  correctionCheckpoint?: SessionCorrectionCheckpoint
 ): SessionSummary {
   const characters = rows.length;
   const correct = rows.filter((row) => row.is_correct === 1).length;
@@ -482,27 +530,12 @@ export function calculateSessionSummary(
     .map((row) => row.iki_ms as number);
   const measuredMs = eligible.reduce((sum, value) => sum + value, 0);
   const activeMs = Math.max(1000, givenActiveMs ?? measuredMs);
-  const minutes = activeMs / 60_000;
-  const rawWpm = characters === 0 ? 0 : characters / 5 / minutes;
-  const uncorrectedPenalty = errors / Math.max(1, minutes);
-  const netWpm = Math.max(0, rawWpm - uncorrectedPenalty);
   const accuracy = characters === 0 ? 0 : correct / characters;
-  const finalByScope = new Map<string, Map<number, { target_char: string; actual_char: string }>>();
-  for (const row of rows) {
-    const scope = row.block_id ?? "session";
-    const positions =
-      finalByScope.get(scope) ?? new Map<number, { target_char: string; actual_char: string }>();
-    if (row.is_correction || row.backspace_count > 0) {
-      for (const position of positions.keys()) {
-        if (position >= row.text_position) positions.delete(position);
-      }
-    }
-    positions.set(row.text_position, row);
-    finalByScope.set(scope, positions);
-  }
-  const finalPositions = [...finalByScope.values()].flatMap((positions) => [...positions.values()]);
-  const finalCorrect = finalPositions.filter((row) => row.actual_char === row.target_char).length;
-  const finalTextAccuracy = finalPositions.length === 0 ? 0 : finalCorrect / finalPositions.length;
+  const finalText = summarizeFinalText(rows, correctionCheckpoint);
+  const rawWpm = calculateRawWpm(characters, activeMs);
+  const netWpm = calculateNetWpm(characters, finalText.uncorrectedErrors, activeMs);
+  const finalTextAccuracy =
+    finalText.characters === 0 ? 0 : finalText.correct / finalText.characters;
   const mean = eligible.length
     ? eligible.reduce((sum, value) => sum + value, 0) / eligible.length
     : 0;
