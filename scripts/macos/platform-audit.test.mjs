@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   extractCoverageInstrumentation,
   extractCoverageSymbols,
+  extractCoverageStrings,
   extractMacOSMinimumVersions,
   smokePackagedServer
 } from "./platform-audit.mjs";
@@ -59,6 +60,15 @@ _ordinary_product_symbol
       "___gcov_flush"
     ]);
     expect(extractCoverageSymbols("_ordinary_product_symbol\n")).toEqual([]);
+    expect(
+      extractCoverageStrings(`
+default.profraw
+LLVM_PROFILE_FILE
+___llvm_profile_write_file
+ordinary product text
+`)
+    ).toEqual(["default.profraw", "LLVM_PROFILE_FILE", "___llvm_profile_write_file"]);
+    expect(extractCoverageStrings("ordinary product text\n")).toEqual([]);
   });
 
   it("does not mistake a linker tool version for the minimum macOS version", () => {

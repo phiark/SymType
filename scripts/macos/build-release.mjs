@@ -155,6 +155,8 @@ export function nativeReleaseBuildArguments(project, derivedDataPath, buildNumbe
     `PRODUCT_BUNDLE_IDENTIFIER=${MACOS_RELEASE.bundleIdentifier}`,
     "ENABLE_CODE_COVERAGE=NO",
     "CLANG_ENABLE_CODE_COVERAGE=NO",
+    "CLANG_COVERAGE_MAPPING=NO",
+    "CLANG_COVERAGE_MAPPING_LINKER_ARGS=NO",
     "GCC_GENERATE_TEST_COVERAGE_FILES=NO",
     "GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=NO",
     "clean",

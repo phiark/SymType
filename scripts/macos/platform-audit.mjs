@@ -49,6 +49,22 @@ export function extractCoverageSymbols(symbols) {
   ];
 }
 
+export function extractCoverageStrings(strings) {
+  return [
+    ...new Set(
+      strings
+        .split("\n")
+        .map((value) => value.trim())
+        .filter(
+          (value) =>
+            value === "default.profraw" ||
+            value.includes("LLVM_PROFILE_FILE") ||
+            value.includes("__llvm_profile_")
+        )
+    )
+  ];
+}
+
 export async function findMachOFiles(root) {
   const result = [];
   for (const file of await listFiles(root)) {
@@ -146,6 +162,13 @@ async function assertArm64MachO(appPath) {
       ...extractCoverageInstrumentation(loadCommands.stdout),
       ...extractCoverageSymbols(symbols.stdout)
     ];
+    if (relative(appPath, file) === "Contents/MacOS/SymType") {
+      const embeddedStrings = await runCommand("/usr/bin/strings", ["-a", file], {
+        capture: true,
+        quiet: true
+      });
+      coverageInstrumentation.push(...extractCoverageStrings(embeddedStrings.stdout));
+    }
     if (coverageInstrumentation.length > 0) {
       throw new Error(
         `${relative(appPath, file)} contains release coverage instrumentation: ` +
