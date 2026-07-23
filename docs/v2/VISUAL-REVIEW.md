@@ -1,13 +1,15 @@
 # SymType 2.0 Visual Review
 
 **State:** Final candidate accepted in Chromium and WebKit
-**Last update:** 2026-07-22
+**Last update:** 2026-07-23
 
 ## Decision
 
-SymType 2.0 does not change product UI. Creating a second visual platform or recapturing every
-historic state would duplicate evidence without user value. Reuse the current V1 matrix and run the
-critical Chromium/WebKit release paths after the final candidate is built.
+SymType 2.0 does not introduce a visual redesign. Issue #3 changes bounded interaction and
+state-handling source, but not the design system, layout, or intended rendered states. Creating a
+second visual platform or recapturing every historic state would duplicate evidence without user
+value. Reuse the current V1 matrix and run the critical Chromium/WebKit release paths after the final
+candidate is built.
 
 ## Accepted evidence
 
@@ -34,8 +36,8 @@ training/exit/completion, disconnected state, axe/focus, populated Analytics, re
 game state. The runtime-boundary test found no unexpected page error, local 5xx, remote request, or
 critical idle-route `console.error`.
 
-No UI source changed in V2 and no visual regression was found, so the accepted 30-image set was not
-blindly regenerated.
+The corrected UI sources do not change the intended visual design, and the final two-engine replay
+found no visual regression, so the accepted 30-image set was not blindly regenerated.
 
 ## Honest limits
 

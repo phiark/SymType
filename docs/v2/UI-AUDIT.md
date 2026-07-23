@@ -1,7 +1,7 @@
 # SymType 2.0 Interface Audit
 
 **State:** Complete; final Chromium/WebKit candidate accepted
-**Last update:** 2026-07-22
+**Last update:** 2026-07-23
 
 ## Audit surface
 
@@ -11,9 +11,10 @@ offline, failure, success, light, dark, reduced-motion, and keyboard-only states
 
 ## Evidence rule
 
-`docs/v2/VISUAL-REVIEW.md` is the release evidence record. V2 changes no UI source, so the accepted
-30-image Chromium/WebKit matrix is reused only after the final production replay verifies the same
-critical routes, states, reflow, focus, and runtime boundaries.
+`docs/v2/VISUAL-REVIEW.md` is the release evidence record. Issue #3 changes bounded interaction and
+state-handling source but does not redesign the visual system or layout. The accepted 30-image
+Chromium/WebKit matrix is reused only after focused interaction regressions and the final production
+replay verify the same critical routes, states, reflow, focus, and runtime boundaries.
 
 ## Required viewports
 

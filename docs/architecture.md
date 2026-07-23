@@ -63,12 +63,37 @@ legacy schema module is intentionally absent from the shared package root.
 SQLite runs with WAL, `foreign_keys=ON`, `busy_timeout=5000`, and `synchronous=NORMAL`. Event batches
 have `(session_id, batch_id)` uniqueness and events have `(session_id, sequence)` uniqueness. A retry
 therefore returns the committed result without duplicating events. The client flushes at 24 events or
-3 seconds and checkpoints on visibility loss. On `pagehide`, it first attempts `sendBeacon`; if the
-browser rejects that handoff it falls back to a keepalive fetch. Lesson completion waits for event and
+3 seconds and checkpoints on visibility loss. On `pagehide`, it makes a best-effort `sendBeacon`
+attempt for printable event batches; if the browser rejects that handoff it falls back to a keepalive
+fetch. Lesson completion waits for event and
 summary transactions before confirming saved state. If a completed micro-block cannot flush events,
 advance source progress, or load its next block, the client retains that exact pending completion and
 offers an idempotent retry; it never silently re-enables a completion-latched input or pretends the
-next block was saved.
+next block was saved. A trailing Backspace has no character-producing event to batch, so completion or
+explicit save may carry a correction checkpoint for the current block. The server verifies that the
+block belongs to the session, is the latest block in canonical event-sequence order, and the position
+is behind that block's reconstructed tail, then reconstructs the final summary without inventing a
+keystroke event. Once completion is latched, the surface rejects further character and Backspace
+input while its save is pending. After an unexpected Practice-page interruption, any batches that
+arrived are retained and the session is abandoned rather than counted as completed; page lifecycle
+delivery itself is not claimed as an atomic save. Persisted summaries keep a schema-validated
+internal metric version and final uncorrected-error count; ordinary user-facing session and history
+projections strip that internal evidence. Every user-facing summary, test-history, experiment,
+game-settlement, and CSV projection rebuilds the same evidence from authoritative events for valid
+historical summaries that predate the version marker when event evidence exists. Raw JSON and SQLite
+backup/export surfaces are preservation formats and intentionally retain the stored internal fields.
+Valid legacy summaries without events retain their stored metrics rather than fabricating evidence;
+neither canonical read path rewrites SQLite history or backup content.
+
+Before any pending forward migration changes an existing database, the repository creates a private
+SQLite snapshot with `VACUUM INTO`, verifies its integrity, foreign keys, schema version, row counts,
+and checksum, and only then applies the migration transaction. This protection also covers the
+standalone migration command. At most two verified snapshots are retained for the same version path;
+failure to remove a stale old file preserves its catalog metadata for retry and cannot discard the
+required new recovery point or block migration. Normal canonical event batches update feature
+evidence incrementally; a rare batch ordered before already-modeled evidence scans only the same
+profile's canonical session-start, session-ID, and event-sequence history, folds affected features in
+memory, and writes each touched feature once so network arrival cannot change the learned model.
 
 Migration v9 rejects malformed JSON text at SQLite insert/update time for all authoritative JSON
 columns. Shared persisted-data schemas then validate domain shape when rows are materialized; a

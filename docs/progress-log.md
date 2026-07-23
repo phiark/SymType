@@ -987,3 +987,46 @@ focused mode, calibration, game, Today/input/audio, and visual-functional result
   personal-best persistence after a real reload, and to prove game sessions remain separate from
   formal-test rankings. No pass count is recorded for this in-progress change. Both browser projects
   and the final merged suite remain required.
+
+## 2026-07-23: Issue #3 local correctness closure
+
+### Confirmed-defect repair
+
+- The whole-repository review closed five bounded correctness and data-safety gaps under V2-D014:
+  verified private pre-migration snapshots now protect both direct and standalone forward migration;
+  delayed lower-sequence event batches rebuild only affected feature evidence from canonical
+  same-profile order; the canonical `TypingSurface` and server projections use the shared WPM
+  contract with final uncorrected errors; completion and explicit save can carry a verified trailing
+  correction checkpoint without inventing an event; and new custom text is normalized and rejected
+  at the first unsupported ANSI-US code point while historical rows remain unchanged.
+- The public runtime schemas, persisted-summary upcast, dashboard/statistics/test/experiment/game/CSV
+  projections, and literal goldens were reconciled without changing schema version 10 or adding or
+  removing a user function. Raw JSON and SQLite backup/export formats continue to preserve stored
+  rows, including internal metric evidence.
+- The merged release-candidate baseline now exists at `a10e9a8` from PR #2. Issue #3 is isolated on
+  `fix/3-review-correctness-gaps`, so its source and documentation diff can be reviewed against that
+  committed baseline.
+
+### Final local release evidence
+
+- Supported Node.js 22.16.0 `npm run check` passed zero-warning lint, strict root/workspace type
+  checks, 62 Vitest files with 452 tests passed and one intentional runtime-conditional skip, and all
+  four production builds.
+- `npm run test:regression` passed all eight files and 22 literal regression tests. The focused
+  seven-file migration/event/settings/persistence/export/backup/restore/canonical-history replay
+  passed 34 tests.
+- The production Chromium/WebKit suite collected 74 cases and passed 73 with one intentional
+  duplicate lifecycle-owner skip in 8.0 minutes. It covered current visual/reflow/axe states, all
+  training modes, formal tests, restore, a real service restart plus fresh-browser SQLite history,
+  runtime boundaries, and every game path without a release-level console error.
+- The deterministic 100k product smoke rendered Today, completed five real micro-blocks, and rendered
+  Analytics with 100,248 events while preserving the source fixture hash. The final isolated launcher
+  smoke also passed its offline install/build/migration, occupied-port, health/reuse, private-mode,
+  damaged-output rebuild, lockfile-planning, and graceful-shutdown checks.
+
+### Delivery state
+
+- Local Issue #3 acceptance and documentation reconciliation are complete. Repository delivery is
+  still pending the required atomic commit, push, linked Pull Request, current CI, one independent
+  approval, resolved conversations, and squash merge. No local gate result is presented as proof that
+  those external workflow steps have already happened.

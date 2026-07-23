@@ -1,7 +1,7 @@
 # SymType 2.0 Release Notes
 
-**State:** Release candidate; not tagged or merged
-**Last update:** 2026-07-22
+**State:** PR #2 merged; Issue #3 corrections locally validated; release not tagged
+**Last update:** 2026-07-23
 
 ## Product
 
@@ -10,13 +10,21 @@ the V1 product contract: Symmetric/Standard/custom ANSI mappings, calibration, T
 training modes, timed tests, actionable analytics, local audio, safe import/export/backup/restore,
 and all six Pineapple Breach levels.
 
-The convergence work adds no user feature and changes no fixed lesson, metric, event, keyboard,
-history, or game result.
+The convergence work adds or removes no user function. Issue #3 corrects confirmed implementation
+drift in migration recovery, canonical event-model ordering, net-WPM and final-error results,
+historical/test/game/CSV projections, trailing-Backspace completion, and validation of newly imported
+custom text. V2-D014 authorizes the corrected literals; focused regressions preserve schema version,
+historical custom text, and existing functions.
 
 ## Release engineering
 
 - Packages are versioned `2.0.0`.
 - Literal V1 outputs are frozen by 22 golden tests.
+- The final Issue #3 Node.js 22.16.0 `npm run check` passed lint, strict type checks, 62 Vitest files
+  with 452 tests passed and one intentional skip, and all four builds.
+- The separate literal regression suite passed all eight files and 22 golden tests.
+- The final production replay collected 74 Chromium/WebKit cases: 73 passed, with one intentional
+  duplicated lifecycle-owner skip, in 8.0 minutes.
 - A deterministic empty/100k performance baseline covers the actual Fastify child, Chromium,
   WebKit, SQLite operations, and production bundle.
 - The 100k Today → five-micro-block completion → populated Analytics smoke passed without changing
@@ -46,12 +54,16 @@ fast. This is accepted for the local single-user release; no architecture rewrit
 
 See `docs/v2/PERFORMANCE-RESULTS.md` for the complete bounded evidence and honest limits.
 
-## External acceptance still required before merge/tag
+## Issue #3 delivery still required before tag
 
-- Obtain one approval from a distinct GitHub reviewer; the author cannot approve the author's PR.
+- Commit and push the issue-scoped branch, open the linked Pull Request, pass its current CI, and
+  obtain one approval from a distinct GitHub reviewer; the author cannot approve the author's PR.
 
 The `main` protection rule is active and requires that approval, the current Node 22 check, an
 up-to-date branch, resolved review conversations, and linear history without administrator bypass.
+The one-time V2-D013 waiver applied only to the already merged bootstrap PR #2.
+
+## External evidence limitations
 
 The official ASD-STE100 Issue 9 PDF is unavailable. Formal normative STE review remains externally
 Blocked; the minimum user action is to provide the official PDF as a readable local file path. The
