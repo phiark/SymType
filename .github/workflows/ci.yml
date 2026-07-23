@@ -82,21 +82,8 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium webkit
 
-      - name: Generate macOS 15 arm64 WebKit calibration baseline
-        run: >-
-          npx playwright test tests/e2e/onboarding-training.spec.ts
-          --project=webkit
-          --grep 'only selected calibration categories'
-          --update-snapshots
-
-      - name: Upload macOS 15 arm64 WebKit calibration baseline
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-15-webkit-calibration-${{ github.run_attempt }}
-          if-no-files-found: error
-          retention-days: 7
-          path: tests/e2e/**/*macos-15-arm64.png
+      - name: Run Chromium and WebKit end-to-end tests
+        run: npm run test:e2e
 
       - name: Upload browser failure evidence
         if: failure()
