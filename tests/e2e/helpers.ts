@@ -252,6 +252,9 @@ export async function typeTargetAtPace(
 ): Promise<void> {
   expect(intervalMs).toBeGreaterThanOrEqual(25);
   await typeTargetWithClock(page, target, () => page.clock.fastForward(intervalMs));
+  // TypingSurface defers its completion callback with setTimeout(0). Drain that final timer
+  // explicitly so fake-clock behavior is identical in Chromium and WebKit.
+  await page.clock.fastForward(1);
 }
 
 export async function assertNoPageOverflow(page: Page): Promise<void> {
