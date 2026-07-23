@@ -86,10 +86,20 @@ final class SymTypeUITests: XCTestCase {
     XCTAssertTrue(application.buttons["测试 JavaScript 对话框"].waitForExistence(timeout: 10))
 
     application.buttons["测试 JavaScript 对话框"].click()
+    let alertSheet = application.sheets.firstMatch
     XCTAssertTrue(
-      application.staticTexts["测试 JavaScript 对话框已打开"].waitForExistence(timeout: 5)
+      alertSheet.waitForExistence(timeout: 5),
+      "The WKUIDelegate JavaScript alert must be presented as a native sheet."
     )
-    application.buttons["好"].click()
+    XCTAssertTrue(
+      alertSheet.staticTexts["测试 JavaScript 对话框已打开"].waitForExistence(timeout: 5)
+    )
+    alertSheet.buttons["好"].click()
+    let alertDismissed = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "exists == false"),
+      object: alertSheet
+    )
+    XCTAssertEqual(XCTWaiter.wait(for: [alertDismissed], timeout: 5), .completed)
 
     application.buttons["测试导入面板"].click()
     XCTAssertTrue(
