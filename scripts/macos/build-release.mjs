@@ -140,8 +140,6 @@ export function nativeReleaseBuildArguments(project, derivedDataPath, buildNumbe
     project,
     "-scheme",
     "SymType",
-    "-enableCodeCoverage",
-    "NO",
     "-configuration",
     "Release",
     "-derivedDataPath",

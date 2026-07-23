@@ -21,7 +21,7 @@ describe("native release build", () => {
         "GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=NO"
       ])
     );
-    expect(arguments_[arguments_.indexOf("-enableCodeCoverage") + 1]).toBe("NO");
+    expect(arguments_).not.toContain("-enableCodeCoverage");
     expect(arguments_.slice(-2)).toEqual(["clean", "build"]);
   });
 });
