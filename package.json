@@ -1,6 +1,6 @@
 {
   "name": "symtype",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -35,12 +35,18 @@
     "test:e2e": "playwright test",
     "test:chromium": "playwright test --project=chromium",
     "test:webkit": "playwright test --project=webkit",
+    "macos:icon": "node scripts/macos/create-icon.mjs",
+    "macos:validate": "node scripts/macos/validate-release-config.mjs",
+    "macos:test": "vitest run scripts/macos scripts/perf/macos-performance-contract.test.mjs",
+    "macos:package": "node scripts/macos/build-release.mjs",
+    "macos:audit": "node scripts/macos/audit-app.mjs",
     "perf:fixtures": "node --import tsx scripts/perf/create-fixtures.ts --sizes empty,100k",
     "perf:startup": "node --import tsx scripts/perf/run-startup.mjs --samples 10",
     "perf:bundle": "node --import tsx scripts/perf/run-bundle.mjs",
     "perf:database": "node --import tsx scripts/perf/run-database.ts --sizes empty,100k",
     "perf:server": "node --import tsx scripts/perf/run-server.mjs --fixture-id 100k --data-root .symtype-perf-data",
     "perf:client": "node --import tsx scripts/perf/run-client.mjs --short --skip-build",
+    "perf:macos:evaluate": "node scripts/perf/evaluate-macos.mjs",
     "perf:baseline:assemble": "node --import tsx scripts/perf/assemble-baseline.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run test:regression && npm run build"
   },

@@ -5,11 +5,16 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api, ApiError } from "../api";
+import { installDesktopLifecycleBridge } from "../desktop-lifecycle";
 import { testBootstrap } from "../test/fixtures";
 import { GameExitConfirmation, GamePage } from "./GamePage";
+
+beforeEach(() => {
+  installDesktopLifecycleBridge();
+});
 
 afterEach(() => {
   cleanup();
@@ -25,6 +30,14 @@ const gameBootstrap = {
     description: `Fictional stage ${index + 1}`
   }))
 };
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
 
 function renderGame() {
   const queryClient = new QueryClient({
@@ -45,6 +58,47 @@ function renderGame() {
     </QueryClientProvider>
   );
 }
+
+function renderGamePlay() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  });
+  const router = createMemoryRouter(
+    [
+      {
+        element: <Outlet context={{ bootstrap: gameBootstrap }} />,
+        children: [{ path: "/game/play", element: <GamePage play /> }]
+      }
+    ],
+    { initialEntries: ["/game/play?run=run-1"] }
+  );
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
+}
+
+const activeGame = {
+  run: {
+    id: "run-1",
+    mode: "campaign",
+    difficulty: "standard",
+    status: "active",
+    current_level: 1,
+    score: 0,
+    alert_value: 0,
+    levels: []
+  },
+  level: {
+    id: "level-1",
+    level: 1,
+    name: "Mission 1",
+    description: "Fictional stage 1",
+    objective: "Type the fictional signal"
+  },
+  targetText: "a"
+};
 
 describe("GamePage persisted progress", () => {
   it("uses confirmed level, achievement and personal-best data", async () => {
@@ -157,6 +211,35 @@ describe("GamePage persisted progress", () => {
 });
 
 describe("GamePage active-session exit safety", () => {
+  it("refuses native shutdown while a created game session is waiting for its first block", async () => {
+    const firstBlock = deferred<{ block: { id: string; target_text: string } }>();
+    vi.spyOn(api, "get").mockImplementation((path) => {
+      if (path === "/api/v1/game/runs/run-1") return Promise.resolve(activeGame);
+      return Promise.reject(new Error(`unexpected path ${path}`));
+    });
+    const post = vi.spyOn(api, "post").mockImplementation(<T,>(path: string) => {
+      if (path === "/api/v1/sessions") {
+        return Promise.resolve({
+          session: { id: "game-session-1", lessonId: "game-lesson-1" }
+        } as T);
+      }
+      if (path.includes("/blocks/next")) return firstBlock.promise;
+      return Promise.reject(new Error(`unexpected POST ${path}`));
+    });
+
+    renderGamePlay();
+    fireEvent.click(await screen.findByRole("button", { name: /开始关卡/u }));
+    await waitFor(() =>
+      expect(post.mock.calls.some(([path]) => String(path).includes("/blocks/next"))).toBe(true)
+    );
+
+    await expect(window.symtypeDesktop.prepareToHide()).resolves.toBe("failed");
+    await expect(window.symtypeDesktop.requestQuit()).resolves.toBe("failed");
+
+    firstBlock.resolve({ block: { id: "game-block-1", target_text: "a" } });
+    expect(await screen.findByRole("textbox", { name: "打字练习输入区" })).toBeVisible();
+  });
+
   it("presents an explicit save-and-abandon choice instead of exiting on request", () => {
     const onOpenChange = vi.fn();
     const onConfirm = vi.fn();

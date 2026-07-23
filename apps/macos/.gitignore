@@ -1,0 +1,4 @@
+.build/
+DerivedData/
+*.xcresult
+SymType/Resources/AppIcon.icns

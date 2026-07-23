@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#23302b"/>
+      <stop offset="1" stop-color="#151917"/>
+    </linearGradient>
+    <linearGradient id="key" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffefa"/>
+      <stop offset="1" stop-color="#e8e8e1"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="220" fill="url(#shell)"/>
+  <rect x="170" y="190" width="684" height="684" rx="156" fill="#0d100f" opacity=".42"/>
+  <rect x="170" y="158" width="684" height="684" rx="156" fill="url(#key)" stroke="#dcebe5" stroke-width="24"/>
+  <path
+    d="M 680 340 C 635 292 573 272 505 282 C 420 294 366 337 366 397 C 366 455 418 484 513 506 C 610 529 661 562 661 631 C 661 705 592 750 505 750 C 426 750 358 720 315 666"
+    fill="none"
+    stroke="#32685a"
+    stroke-width="112"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="315" cy="666" r="20" fill="#71b59d"/>
+  <circle cx="680" cy="340" r="20" fill="#71b59d"/>
+</svg>

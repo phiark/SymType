@@ -69,7 +69,18 @@ test("analytics, mapping, backup, theme, and custom text controls are live", asy
     zone: nextFinger
   });
   await page.getByRole("button", { name: /数据与备份/ }).click();
+  const dataSection = page.locator("#settings-data");
+  await dataSection.evaluate((section) =>
+    section.scrollIntoView({ behavior: "instant", block: "start" })
+  );
+  await expect(dataSection).toBeInViewport();
+  const backupResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/backups") && response.request().method() === "POST"
+  );
   await page.getByRole("button", { name: /创建 SQLite 快照/ }).click();
+  const createdBackup = await backupResponse;
+  expect(createdBackup.ok(), await createdBackup.text()).toBeTruthy();
   await expect(
     page.getByRole("button", { name: /关闭通知：已创建并轮转本机 SQLite 备份/u })
   ).toBeVisible();

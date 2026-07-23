@@ -39,6 +39,7 @@ import {
 import { MetricCard } from "../components/ui";
 import { strategyForLocalDate } from "../experiment";
 import { usePersistentEvents } from "../hooks/usePersistentEvents";
+import { useDesktopSessionLifecycle } from "../hooks/useDesktopSessionLifecycle";
 import { useSessionNavigationGuard } from "../hooks/useSessionNavigationGuard";
 import { activeKeyboardLayout, focusCharactersForScopes } from "../keyboard";
 import type { BootstrapData, SessionSummary, StoredEvent } from "../types";
@@ -228,6 +229,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
   const exitWasPausedRef = useRef(false);
   const cancellingBlockedNavigationRef = useRef(false);
   const sessionSeedRef = useRef(0);
+  const criticalMutationTokensRef = useRef(new Set<symbol>());
   const [state, setState] = useState<"ready" | "starting" | "running" | "saving" | "complete">(
     "ready"
   );
@@ -334,15 +336,37 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     setExitOpen(true);
   }, [exitOpen]);
 
+  const pauseForDesktopLifecycle = useCallback(() => {
+    surfaceRef.current?.pause();
+  }, []);
+  const beginCriticalMutation = useCallback(() => {
+    const token = Symbol("desktop-critical-mutation");
+    criticalMutationTokensRef.current.add(token);
+    return () => criticalMutationTokensRef.current.delete(token);
+  }, []);
+  const isCriticalMutationInFlight = useCallback(
+    () => criticalMutationTokensRef.current.size > 0,
+    []
+  );
+  const { completeDesktopQuitRequest, runDesktopQuitPersistence } = useDesktopSessionLifecycle({
+    active: Boolean(sessionId) && state !== "complete",
+    isCriticalMutationInFlight,
+    flush,
+    pause: pauseForDesktopLifecycle,
+    requestExitConfirmation: openExitConfirmation,
+    onError: setSaveError
+  });
+
   const cancelExit = useCallback(() => {
     if (exitSaving) return;
     if (blocker.state === "blocked") {
       cancellingBlockedNavigationRef.current = true;
       blocker.reset();
     }
+    completeDesktopQuitRequest("cancelled");
     setExitOpen(false);
     if (!exitWasPausedRef.current) surfaceRef.current?.resume();
-  }, [blocker, exitSaving]);
+  }, [blocker, completeDesktopQuitRequest, exitSaving]);
 
   useEffect(() => {
     if (blocker.state !== "blocked") {
@@ -469,6 +493,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     if (!audioReady && bootstrap.settings.soundEnabled) {
       setAudioNotice("浏览器未解锁声音；训练继续，点击页面后可在设置中再次试听。 ");
     }
+    const endCriticalMutation = beginCriticalMutation();
     try {
       const requestedSeedParam = params.get("seed");
       const requestedSeed = requestedSeedParam == null ? Number.NaN : Number(requestedSeedParam);
@@ -502,6 +527,8 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "无法开始训练。");
       setState("ready");
+    } finally {
+      endCriticalMutation();
     }
   };
 
@@ -510,6 +537,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       const activeSessionId = sessionIdRef.current;
       if (!activeSessionId || finishingRef.current) return false;
       const correctionCheckpoint = currentCorrectionCheckpoint();
+      const endCriticalMutation = beginCriticalMutation();
       finishingRef.current = true;
       setState("saving");
       try {
@@ -556,6 +584,8 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
         );
         setState("running");
         return false;
+      } finally {
+        endCriticalMutation();
       }
     },
     [
@@ -568,12 +598,14 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       bypassNextNavigation,
       queryClient,
       replaceSessionParam,
-      selectedCalibrationCategories
+      selectedCalibrationCategories,
+      beginCriticalMutation
     ]
   );
 
   const completeBlock = async (blockProgress: TypingProgress) => {
     if (!lessonId || blockCompletionInFlightRef.current) return;
+    const endCriticalMutation = beginCriticalMutation();
     blockCompletionInFlightRef.current = true;
     pendingBlockCompletionRef.current ??= blockProgress;
     setBlockCompletionPending(true);
@@ -619,6 +651,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       setState("running");
     } finally {
       blockCompletionInFlightRef.current = false;
+      endCriticalMutation();
     }
   };
 
@@ -690,6 +723,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     )
       return;
     recoveryAttemptedRef.current.add(interruptedSessionId);
+    const endCriticalMutation = beginCriticalMutation();
     setState("starting");
     void api
       .post<{ recovered: boolean; status: string }>(
@@ -709,25 +743,32 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       .catch((error: unknown) => {
         setSaveError(error instanceof Error ? error.message : "无法恢复上次中断训练。");
       })
-      .finally(() => setState("ready"));
-  }, [params, queryClient, replaceSessionParam]);
+      .finally(() => {
+        endCriticalMutation();
+        setState("ready");
+      });
+  }, [beginCriticalMutation, params, queryClient, replaceSessionParam]);
 
   const abandon = async () => {
+    const endCriticalMutation = beginCriticalMutation();
     setExitSaving(true);
     setSaveError("");
     try {
-      if (sessionIdRef.current) {
-        const correctionCheckpoint = currentCorrectionCheckpoint();
-        await flush();
-        await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
-          ...(correctionCheckpoint ? { correctionCheckpoint } : {})
-        });
-      }
+      await runDesktopQuitPersistence(async () => {
+        if (sessionIdRef.current) {
+          const correctionCheckpoint = currentCorrectionCheckpoint();
+          await flush();
+          await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
+            ...(correctionCheckpoint ? { correctionCheckpoint } : {})
+          });
+        }
+      });
       sessionIdRef.current = null;
       lessonIdRef.current = null;
       blockIdRef.current = null;
       setSessionId(null);
       setLessonId(null);
+      completeDesktopQuitRequest("ready");
       setExitOpen(false);
       if (blocker.state === "blocked") {
         blocker.proceed();
@@ -737,8 +778,10 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "无法保存并退出当前训练。");
+      completeDesktopQuitRequest("failed");
     } finally {
       setExitSaving(false);
+      endCriticalMutation();
     }
   };
 
@@ -749,6 +792,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       setFeedbackState("error");
       return;
     }
+    const endCriticalMutation = beginCriticalMutation();
     setFeedbackState("saving");
     setFeedbackError("");
     try {
@@ -761,6 +805,8 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     } catch (error) {
       setFeedbackError(error instanceof Error ? error.message : "主观反馈尚未保存，请重试。");
       setFeedbackState("error");
+    } finally {
+      endCriticalMutation();
     }
   };
 
@@ -1169,6 +1215,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           <TypingSurface
             ref={surfaceRef}
             target={block.target_text}
+            blockIdentity={block.id}
             mode={
               mode === "calibration" && block.block_type.startsWith("calibration-")
                 ? block.block_type

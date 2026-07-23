@@ -79,6 +79,18 @@ describe("session analysis domain", () => {
     expect(oneRemainingError).toMatchObject({ rawWpm: 4, netWpm: 2 });
   });
 
+  test("normalizes fractional active time without changing metric duration", () => {
+    const summary = calculateSessionSummary(
+      Array.from({ length: 5 }, (_, sequence) =>
+        row(sequence, "a", "a", { iki_ms: sequence === 0 ? null : 250.125 })
+      )
+    );
+
+    expect(summary.activeMs).toBe(1_001);
+    expect(Number.isInteger(summary.activeMs)).toBe(true);
+    expect(summary.rawWpm).toBe(60);
+  });
+
   test("applies a trailing correction checkpoint without inventing a keystroke", () => {
     const rows = [row(0, "a"), row(1, "b", "x")];
     const checkpoint = {

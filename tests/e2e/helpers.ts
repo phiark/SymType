@@ -245,13 +245,50 @@ export async function typeTarget(page: Page, target: string): Promise<void> {
   await typeTargetWithClock(page, target);
 }
 
+function visibleTargetGlyph(character: string): string {
+  if (character === " ") return "·";
+  if (character === "\n") return "↵\n";
+  if (character === "\t") return "⇥";
+  return character;
+}
+
 export async function typeTargetAtPace(
   page: Page,
   target: string,
   intervalMs = 120
 ): Promise<void> {
   expect(intervalMs).toBeGreaterThanOrEqual(25);
+  const surface = page.getByRole("textbox", { name: "打字练习输入区" });
+  const expectedGlyphs = Array.from(target, visibleTargetGlyph);
+  // A block response can arrive before React swaps the completed surface for the next block.
+  // Wait for both the authoritative target and its initial caret before sending physical keys.
+  await expect
+    .poll(() =>
+      surface.locator(".typing-glyph").evaluateAll((glyphs) => ({
+        glyphs: glyphs.map((glyph) => glyph.textContent ?? ""),
+        currentIndex: glyphs.findIndex((glyph) => glyph.classList.contains("is-current"))
+      }))
+    )
+    .toEqual({ glyphs: expectedGlyphs, currentIndex: 0 });
   await typeTargetWithClock(page, target, () => page.clock.fastForward(intervalMs));
+  // TypingSurface defers its completion callback with setTimeout(0). Observe either the
+  // completed target or an already-rendered successor: fast WebKit runs can replace the
+  // surface before the assertion starts, while slower runs leave the completed target in
+  // place until the fake clock advances.
+  await expect
+    .poll(async () => {
+      const rendered = await surface.locator(".typing-glyph").evaluateAll((glyphs) => ({
+        glyphs: glyphs.map((glyph) => glyph.textContent ?? ""),
+        currentIndex: glyphs.findIndex((glyph) => glyph.classList.contains("is-current"))
+      }));
+      const sameTarget =
+        rendered.glyphs.length === expectedGlyphs.length &&
+        rendered.glyphs.every((glyph, index) => glyph === expectedGlyphs[index]);
+      if (!sameTarget) return "advanced";
+      return rendered.currentIndex === -1 ? "completed" : `typing:${rendered.currentIndex}`;
+    })
+    .toMatch(/^(?:advanced|completed)$/u);
+  await page.clock.runFor(1);
 }
 
 export async function assertNoPageOverflow(page: Page): Promise<void> {

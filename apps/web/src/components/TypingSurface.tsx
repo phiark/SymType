@@ -45,6 +45,7 @@ export interface TypingSurfaceHandle {
 
 interface TypingSurfaceProps {
   target: string;
+  blockIdentity?: string;
   mode: string;
   settings: AppSettings;
   layout?: readonly KeyDefinition[];
@@ -103,6 +104,7 @@ export const TypingSurface = memo(
   forwardRef<TypingSurfaceHandle, TypingSurfaceProps>(function TypingSurface(
     {
       target,
+      blockIdentity,
       mode,
       settings,
       layout = SYMMETRIC_LAYOUT,
@@ -275,8 +277,9 @@ export const TypingSurface = memo(
 
     useEffect(() => {
       reset();
-      // Target boundaries intentionally reset the transient surface; persisted sequence is external.
-    }, [reset, target]);
+      // Block boundaries intentionally reset transient state even when adaptive content repeats.
+      // Keeping the component mounted preserves keyboard focus across that boundary.
+    }, [blockIdentity, reset, target]);
 
     useEffect(() => {
       const surface = surfaceRef.current;

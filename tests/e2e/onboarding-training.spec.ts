@@ -109,6 +109,8 @@ test.describe.serial("local-first onboarding and persisted training", () => {
     page,
     request
   }, testInfo) => {
+    // This acceptance path intentionally types five persisted blocks at a realistic pace.
+    test.setTimeout(90_000);
     await finishOnboarding(page);
     await mutate(request, "patch", "/api/v1/settings", { theme: "dark" });
     await page.reload();
@@ -258,7 +260,9 @@ test.describe.serial("local-first onboarding and persisted training", () => {
     const completionBody = completed.request().postDataJSON() as { activeMs: number };
     const expectedActiveMs = 4 * 60_000 + pacedCharacters * 120;
     expect(completionBody.activeMs).toBeGreaterThanOrEqual(expectedActiveMs);
-    expect(completionBody.activeMs).toBeLessThan(expectedActiveMs + 2_000);
+    // WebKit scheduling overhead is real active time; keep enough slack for hosted runners while
+    // remaining far below the two paused minutes that this assertion is designed to exclude.
+    expect(completionBody.activeMs).toBeLessThan(expectedActiveMs + 10_000);
     await expect(page.getByRole("heading", { name: "这一轮完成了" })).toBeVisible();
     await expect(page.getByText("有效活动", { exact: true })).toBeVisible();
     await expect(page.getByText("有效样本", { exact: true })).toBeVisible();

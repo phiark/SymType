@@ -56,6 +56,50 @@ function renderSurface(
 }
 
 describe("TypingSurface keyboard event boundary", () => {
+  it("resets repeated target content at a new block identity without remounting or losing focus", () => {
+    const onEvent = vi.fn();
+    const onComplete = vi.fn();
+    const onExitRequest = vi.fn();
+    const view = render(
+      <TypingSurface
+        target="a"
+        blockIdentity="block-1"
+        mode="smart"
+        settings={{ ...testSettings, keyboardVisible: false }}
+        active
+        onEvent={onEvent}
+        onComplete={onComplete}
+        onExitRequest={onExitRequest}
+      />
+    );
+    const firstSurface = screen.getByRole("textbox", { name: "打字练习输入区" });
+    firstSurface.focus();
+    fireEvent.keyDown(firstSurface, { key: "a", code: "KeyA" });
+    expect(screen.getByText("1/1")).toBeVisible();
+
+    view.rerender(
+      <TypingSurface
+        target="a"
+        blockIdentity="block-2"
+        mode="smart"
+        settings={{ ...testSettings, keyboardVisible: false }}
+        active
+        onEvent={onEvent}
+        onComplete={onComplete}
+        onExitRequest={onExitRequest}
+      />
+    );
+
+    const nextSurface = screen.getByRole("textbox", { name: "打字练习输入区" });
+    expect(nextSurface).toBe(firstSurface);
+    expect(nextSurface).toHaveFocus();
+    expect(screen.getByText("0/1")).toBeVisible();
+    expect(nextSurface.querySelector(".typing-glyph.is-current")).toHaveTextContent("a");
+
+    fireEvent.keyDown(nextSurface, { key: "Escape", code: "Escape" });
+    expect(onExitRequest).toHaveBeenCalledOnce();
+  });
+
   it("cancels transient callbacks when the surface unmounts", async () => {
     vi.useFakeTimers();
     const { surface, onComplete } = renderSurface("a", { settings: { stopOnError: true } });
