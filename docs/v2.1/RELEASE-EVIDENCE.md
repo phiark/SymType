@@ -2,18 +2,23 @@
 
 **Candidate:** 2.1.0 build 1
 **Issue:** #5
-**State:** Source implementation in progress; no DMG is accepted yet
+**State:** Automated internal DMG candidate verified; clean-host, formal performance, and approval
+gates remain pending
 
 ## Immutable candidate identity
 
-| Field                | Required value                                                     | Recorded value        |
-| -------------------- | ------------------------------------------------------------------ | --------------------- |
-| Full commit          | 40-character release commit                                        | Pending               |
-| Node                 | 24.18.0 / ABI 137 / arm64                                          | Pending package audit |
-| macOS minimum        | 15.0                                                               | Pending Mach-O audit  |
-| Bundle ID            | `com.zerolab.symtype`                                              | Pending plist audit   |
-| Node archive SHA-256 | `4477b9f78efb77744cf5eb57a0e9594dba66466b38b4e93fa9f35cb907a095a6` | Enforced by source    |
-| DMG SHA-256          | generated `.sha256` value                                          | Pending               |
+| Field                | Required value                                                     | Recorded value                                  |
+| -------------------- | ------------------------------------------------------------------ | ----------------------------------------------- |
+| Full commit          | 40-character release commit                                        | Final PR-head workflow artifact and PR evidence |
+| Node                 | 24.18.0 / ABI 137 / arm64                                          | Verified by package audit                       |
+| macOS minimum        | 15.0                                                               | Verified by plist and Mach-O audit              |
+| Bundle ID            | `com.zerolab.symtype`                                              | Verified by plist and native tests              |
+| Node archive SHA-256 | `4477b9f78efb77744cf5eb57a0e9594dba66466b38b4e93fa9f35cb907a095a6` | Verified before extraction                      |
+| DMG SHA-256          | generated `.sha256` value                                          | Final PR-head workflow artifact and PR evidence |
+
+Commit, DMG, and artifact digests are intentionally recorded in Pull Request #6 and its final-head
+Actions artifact rather than hard-coded here: changing this ledger changes the commit and therefore
+the manifest and DMG digest.
 
 ## Build and automated checks
 
@@ -45,34 +50,34 @@ npm run test:e2e
 npm run macos:package
 ```
 
-| Check                                                      | Result             | Evidence          |
-| ---------------------------------------------------------- | ------------------ | ----------------- |
-| Structural macOS release validation                        | Pending final head | command log       |
-| Formatting, lint, typecheck, unit/integration, four builds | Pending final head | command log / CI  |
-| V1 fixed-output regression                                 | Pending final head | command log / CI  |
-| Native unit and UI tests                                   | Pending full Xcode | xcodebuild result |
-| Chromium and WebKit E2E                                    | Pending final head | Playwright report |
-| Clean archive/install/build/prune                          | Pending package    | release log       |
-| Embedded Node/SQLite ABI load                              | Pending package    | release audit     |
-| Manifest/hash/allowlist/Mach-O/dependency/signature audit  | Pending package    | release result    |
-| DMG verify and size                                        | Pending package    | release result    |
-| macOS 15 arm64 CI                                          | Pending PR head    | Actions run       |
+| Check                                                      | Result   | Evidence                                  |
+| ---------------------------------------------------------- | -------- | ----------------------------------------- |
+| Structural macOS release validation                        | Verified | final-head macOS package run              |
+| Formatting, lint, typecheck, unit/integration, four builds | Verified | final-head Node 22 and clean package runs |
+| V1 fixed-output regression                                 | Verified | final-head Node 22 and clean package runs |
+| Native unit and UI tests                                   | Verified | final-head Xcode/XCUITest result          |
+| Chromium and WebKit E2E                                    | Verified | final-head Playwright result              |
+| Clean archive/install/build/prune                          | Verified | final-head release log                    |
+| Embedded Node/SQLite ABI load                              | Verified | final-head release audit                  |
+| Manifest/hash/allowlist/Mach-O/dependency/signature audit  | Verified | final-head release result                 |
+| DMG verify and size                                        | Verified | final-head release result                 |
+| macOS 15 arm64 CI                                          | Verified | Pull Request #6 Actions runs              |
 
-This development machine currently has Command Line Tools but not a complete active Xcode
-installation. Native Xcode build, XCUITest, signed app assembly, and DMG evidence remain blocked
-locally until full Xcode is installed. This is an environment blocker, not passing evidence.
+This development machine has Command Line Tools but not a complete active Xcode installation.
+Local Xcode/XCUITest execution remains unavailable; the final-head macOS 15 arm64 CI job supplies
+that automated evidence. Clean-user-host and interactive manual evidence are still separate gates.
 
 ## Performance evidence
 
-| Evidence                                        | Result  |
-| ----------------------------------------------- | ------- |
-| Refreshed source baseline, same commit and Node | Pending |
-| Installed packaged-app raw samples              | Pending |
-| Evaluator result                                | Pending |
-| Empty/100k startup gates                        | Pending |
-| WebKit typing and 24-event persistence gates    | Pending |
-| 30-minute heap/RSS/CPU gate                     | Pending |
-| App/DMG size gate                               | Pending |
+| Evidence                                        | Result                               |
+| ----------------------------------------------- | ------------------------------------ |
+| Refreshed source baseline, same commit and Node | Pending                              |
+| Installed packaged-app raw samples              | Pending                              |
+| Evaluator result                                | Pending                              |
+| Empty/100k startup gates                        | Pending                              |
+| WebKit typing and 24-event persistence gates    | Pending                              |
+| 30-minute heap/RSS/CPU gate                     | Pending                              |
+| App/DMG size gate                               | Verified by final-head package audit |
 
 Follow [PERFORMANCE-METHODOLOGY.md](PERFORMANCE-METHODOLOGY.md). Historical 2.0 measurements are
 context only and must not populate these fields.
