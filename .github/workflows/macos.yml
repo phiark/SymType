@@ -1,0 +1,86 @@
+name: macOS package
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: macOS 15 arm64 Node 24 package
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      CI: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Require Apple Silicon runner
+        run: test "$(uname -m)" = "arm64"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate release inputs and Xcode
+        run: npm run macos:validate -- --require-toolchain
+
+      - name: Run packaging and performance-contract tests
+        run: npm run macos:test
+
+      - name: Generate deterministic native icon
+        run: npm run macos:icon
+
+      - name: Run native macOS tests
+        run: >-
+          xcodebuild test
+          -project apps/macos/SymType.xcodeproj
+          -scheme SymType
+          -configuration Debug
+          -destination 'platform=macOS,arch=arm64'
+          -derivedDataPath "$RUNNER_TEMP/SymTypeTests"
+          CODE_SIGNING_ALLOWED=YES
+          CODE_SIGNING_REQUIRED=YES
+          CODE_SIGN_STYLE=Manual
+          CODE_SIGN_IDENTITY=-
+          DEVELOPMENT_TEAM=
+          ONLY_ACTIVE_ARCH=YES
+          ARCHS=arm64
+          MACOSX_DEPLOYMENT_TARGET=15.0
+
+      - name: Cache pinned Node release archive
+        uses: actions/cache@v4
+        with:
+          path: dist/macos/cache/node-v24.18.0-darwin-arm64.tar.xz
+          key: node-v24.18.0-darwin-arm64-4477b9f7
+
+      - name: Build and audit application and DMG
+        run: npm run macos:package
+
+      - name: Upload verified internal distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: SymType-2.1.0-macos-arm64
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/macos/SymType-2.1.0-macos-arm64.dmg
+            dist/macos/SymType-2.1.0-macos-arm64.dmg.sha256
+            dist/macos/SymType.app/Contents/Resources/release-manifest.json
+            dist/macos/release-result.json

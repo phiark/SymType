@@ -20,5 +20,6 @@ diagnostic-summary.json
 *.log
 .DS_Store
 apps/web/.vite/
+apps/macos/.build/
 packages/*/*.tsbuildinfo
 apps/*/*.tsbuildinfo

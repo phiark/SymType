@@ -10,6 +10,7 @@ import { createApp, type AppContext } from "../src/app.js";
 import { loadConfig, type ServerConfig } from "../src/config.js";
 import type { StoredEvent } from "../src/db/database.js";
 import { migrations } from "../src/db/migrations.js";
+import { PRODUCT_VERSION } from "../src/product-version.js";
 
 const HOST = "127.0.0.1:4173";
 const ORIGIN = `http://${HOST}`;
@@ -220,6 +221,7 @@ describe.sequential("SymType local server integration", () => {
     expect(health.json()).toMatchObject({
       ok: true,
       service: "symtype",
+      version: PRODUCT_VERSION,
       schemaVersion: migrations.at(-1)?.version,
       integrity: { ok: true, detail: "ok" }
     });
@@ -773,6 +775,43 @@ describe.sequential("SymType local server integration", () => {
         uncorrectedErrors: 0
       });
     }
+  });
+
+  test("abandons sessions whose browser-derived active time contains fractional milliseconds", async () => {
+    const context = await openApp();
+    const session = await createSession(context);
+    const block = createFixtureBlock(context, session, "aaaaaaa");
+    const accepted = await context.app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${session.id}/events`,
+      headers: mutationHeaders(context),
+      payload: eventPayload(
+        session,
+        block,
+        Array.from({ length: 7 }, (_, sequence) =>
+          event(sequence, "a", "a", {
+            ikiMs: sequence === 0 ? null : 200.1,
+            textPosition: sequence
+          })
+        )
+      )
+    });
+    expect(accepted.statusCode).toBe(200);
+
+    const abandoned = await context.app.inject({
+      method: "POST",
+      url: `/api/v1/sessions/${session.id}/abandon`,
+      headers: mutationHeaders(context),
+      payload: {}
+    });
+    expect(abandoned.statusCode).toBe(200);
+    expect(abandoned.json()).toEqual({ ok: true });
+
+    const stored = context.database.db
+      .prepare("SELECT status, active_ms, summary_json FROM sessions WHERE id = ?")
+      .get(session.id) as { status: string; active_ms: number; summary_json: string };
+    expect(stored).toMatchObject({ status: "abandoned", active_ms: 1_201 });
+    expect(JSON.parse(stored.summary_json)).toMatchObject({ activeMs: 1_201 });
   });
 
   test("rejects correction checkpoints for prior blocks and positions ahead of the event tail", async () => {

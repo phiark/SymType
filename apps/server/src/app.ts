@@ -67,6 +67,8 @@ import type { z } from "zod";
 
 import { requireLoopbackBindHost, type ServerConfig } from "./config.js";
 import { ALGORITHM_VERSION, SymTypeDatabase } from "./db/database.js";
+import { PRODUCT_VERSION } from "./product-version.js";
+import { StartupTimeline } from "./startup-timings.js";
 
 function practiceMode(mode: string): PracticeContentModeId | undefined {
   const aliased =
@@ -441,16 +443,20 @@ export interface AppContext {
   app: FastifyInstance;
   database: SymTypeDatabase;
   csrfToken: string;
+  startupTimeline: StartupTimeline;
 }
 
 export interface AppOptions {
   logStream?: { write(message: string): void };
+  startupTimeline?: StartupTimeline;
 }
 
 export async function createApp(
   config: ServerConfig,
   options: AppOptions = {}
 ): Promise<AppContext> {
+  const startupTimeline = options.startupTimeline ?? new StartupTimeline();
+  startupTimeline.mark("appConstructionStarted");
   requireLoopbackBindHost(config.host);
   const app = Fastify({
     logger: config.isTest
@@ -505,7 +511,14 @@ export async function createApp(
       );
     }
   }
-  await database.ensureAutomaticBackup();
+  startupTimeline.mark("databaseReady");
+  startupTimeline.mark("automaticBackupStarted");
+  try {
+    const automaticBackup = await database.ensureAutomaticBackup();
+    startupTimeline.recordAutomaticBackupOutcome(automaticBackup ? "created" : "current");
+  } finally {
+    startupTimeline.mark("automaticBackupFinished");
+  }
 
   app.addHook("onRequest", async (request, reply) => {
     if (!isLoopbackHost(request.headers.host)) {
@@ -602,7 +615,7 @@ export async function createApp(
     return reply.status(healthy ? 200 : 503).send({
       ok: healthy,
       service: "symtype",
-      version: "0.1.0",
+      version: PRODUCT_VERSION,
       schemaVersion: database.getSchemaVersion(),
       algorithmVersion: ALGORITHM_VERSION,
       integrity,
@@ -1292,5 +1305,6 @@ export async function createApp(
     database.close();
   });
 
-  return { app, database, csrfToken };
+  startupTimeline.mark("appConstructionFinished");
+  return { app, database, csrfToken, startupTimeline };
 }

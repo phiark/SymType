@@ -7,6 +7,7 @@ import { soundEngine } from "./audio";
 import { AppShell } from "./components/AppShell";
 import { ErrorState, LoadingState } from "./components/ui";
 import { OnboardingPage } from "./pages/OnboardingPage";
+import { scheduleWebInteractivePaint } from "./performance-probe";
 
 const AnalyticsPage = lazy(() =>
   import("./pages/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage }))
@@ -29,6 +30,13 @@ const TodayPage = lazy(() =>
 const TrainPage = lazy(() =>
   import("./pages/TrainPage").then((module) => ({ default: module.TrainPage }))
 );
+
+function StartupInteractiveMarker() {
+  useEffect(() => {
+    scheduleWebInteractivePaint();
+  }, []);
+  return null;
+}
 
 export function App() {
   const bootstrapQuery = useQuery({
@@ -61,11 +69,17 @@ export function App() {
   }
 
   if (!bootstrapQuery.data.settings.onboardingComplete) {
-    return <OnboardingPage bootstrap={bootstrapQuery.data} />;
+    return (
+      <>
+        <StartupInteractiveMarker />
+        <OnboardingPage bootstrap={bootstrapQuery.data} />
+      </>
+    );
   }
 
   return (
     <Suspense fallback={<LoadingState label="正在打开本机页面…" />}>
+      <StartupInteractiveMarker />
       <Routes>
         <Route element={<AppShell bootstrap={bootstrapQuery.data} />}>
           <Route index element={<TodayPage />} />

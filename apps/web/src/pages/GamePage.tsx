@@ -27,6 +27,7 @@ import {
   type TypingSurfaceHandle
 } from "../components/TypingSurface";
 import { ErrorState, LoadingState, PageHeader, SegmentedControl } from "../components/ui";
+import { useDesktopSessionLifecycle } from "../hooks/useDesktopSessionLifecycle";
 import { usePersistentEvents } from "../hooks/usePersistentEvents";
 import { useSessionNavigationGuard } from "../hooks/useSessionNavigationGuard";
 import { activeKeyboardLayout } from "../keyboard";
@@ -219,6 +220,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
   const levelElapsedRef = useRef(0);
   const pendingStageRef = useRef<2 | 3 | null>(null);
   const exitWasPausedRef = useRef(false);
+  const criticalMutationTokensRef = useRef(new Set<symbol>());
   const [exitOpen, setExitOpen] = useState(false);
   const [exitSaving, setExitSaving] = useState(false);
   const runId = params.get("run");
@@ -269,12 +271,34 @@ export function GamePage({ play = false }: { play?: boolean }) {
     setExitOpen(true);
   }, [exitOpen]);
 
+  const pauseForDesktopLifecycle = useCallback(() => {
+    setPaused(true);
+  }, []);
+  const beginCriticalMutation = useCallback(() => {
+    const token = Symbol("desktop-critical-mutation");
+    criticalMutationTokensRef.current.add(token);
+    return () => criticalMutationTokensRef.current.delete(token);
+  }, []);
+  const isCriticalMutationInFlight = useCallback(
+    () => criticalMutationTokensRef.current.size > 0,
+    []
+  );
+  const { completeDesktopQuitRequest } = useDesktopSessionLifecycle({
+    active: Boolean(sessionId),
+    isCriticalMutationInFlight,
+    flush,
+    pause: pauseForDesktopLifecycle,
+    requestExitConfirmation: openExitConfirmation,
+    onError: setSaveError
+  });
+
   const cancelExit = useCallback(() => {
     if (exitSaving) return;
     if (blocker.state === "blocked") blocker.reset();
+    completeDesktopQuitRequest("cancelled");
     setExitOpen(false);
     setPaused(exitWasPausedRef.current);
-  }, [blocker, exitSaving]);
+  }, [blocker, completeDesktopQuitRequest, exitSaving]);
 
   useEffect(() => {
     if (blocker.state !== "blocked") return;
@@ -283,6 +307,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
   }, [blocker.state, openExitConfirmation]);
 
   const startCampaign = async () => {
+    const endCriticalMutation = beginCriticalMutation();
     setStarting(true);
     setStartError("");
     try {
@@ -295,6 +320,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
       setStartError(error instanceof Error ? error.message : "无法创建本地游戏 run。");
     } finally {
       setStarting(false);
+      endCriticalMutation();
     }
   };
 
@@ -329,6 +355,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
 
   const beginLevel = async (freshGame: GameResponse) => {
     if (resolvingRef.current) return;
+    const endCriticalMutation = beginCriticalMutation();
     const freshLevel = freshGame.run.current_level;
     const plannedSeconds = Number(freshGame.plan?.tuning?.timeLimitSeconds);
     const freshSeconds =
@@ -395,6 +422,8 @@ export function GamePage({ play = false }: { play?: boolean }) {
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "无法开始当前关卡，请重试。");
       setBriefing(true);
+    } finally {
+      endCriticalMutation();
     }
   };
 
@@ -405,6 +434,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
       reason?: "alert-maxed" | "timeout" | "accuracy-gate"
     ) => {
       if (!runId || resolvingRef.current) return;
+      const endCriticalMutation = beginCriticalMutation();
       pendingResolutionRef.current = {
         result,
         ...(progress ? { progress } : {}),
@@ -453,9 +483,19 @@ export function GamePage({ play = false }: { play?: boolean }) {
         }
         resolvingRef.current = false;
         setResolving(false);
+        endCriticalMutation();
       }
     },
-    [currentCorrectionCheckpoint, flush, gameQuery, queryClient, runId, secondsForLevel, timeLeft]
+    [
+      beginCriticalMutation,
+      currentCorrectionCheckpoint,
+      flush,
+      gameQuery,
+      queryClient,
+      runId,
+      secondsForLevel,
+      timeLeft
+    ]
   );
 
   const loadGameStage = useCallback(
@@ -464,6 +504,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
         setSaveError("当前游戏 lesson 已失效，请退出并重开本关。");
         return;
       }
+      const endCriticalMutation = beginCriticalMutation();
       setResolving(true);
       try {
         await flush();
@@ -497,9 +538,10 @@ export function GamePage({ play = false }: { play?: boolean }) {
         );
       } finally {
         setResolving(false);
+        endCriticalMutation();
       }
     },
-    [currentLevel, flush, game, runId]
+    [beginCriticalMutation, currentLevel, flush, game, runId]
   );
 
   const completeStage = useCallback(
@@ -610,6 +652,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
   };
 
   const exitActiveLevel = async () => {
+    const endCriticalMutation = beginCriticalMutation();
     setExitSaving(true);
     setPaused(true);
     setSaveError("");
@@ -627,6 +670,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
       setSessionId(null);
       setLessonId(null);
       setLevelTarget(null);
+      completeDesktopQuitRequest("ready");
       setExitOpen(false);
       if (blocker.state === "blocked") {
         blocker.proceed();
@@ -638,8 +682,10 @@ export function GamePage({ play = false }: { play?: boolean }) {
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "无法保存并退出当前关卡。");
+      completeDesktopQuitRequest("failed");
     } finally {
       setExitSaving(false);
+      endCriticalMutation();
     }
   };
 

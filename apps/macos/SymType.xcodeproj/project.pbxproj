@@ -1,0 +1,619 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* ProductConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* ProductConfiguration.swift */; };
+		A10000000000000000000002 /* Security.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* Security.swift */; };
+		A10000000000000000000003 /* ServerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* ServerProtocol.swift */; };
+		A10000000000000000000004 /* ServerSupervisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ServerSupervisor.swift */; };
+		A10000000000000000000005 /* WebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* WebViewController.swift */; };
+		A10000000000000000000006 /* ApplicationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* ApplicationController.swift */; };
+		A10000000000000000000007 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* main.swift */; };
+		A10000000000000000000008 /* ProductConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* ProductConfigurationTests.swift */; };
+		A10000000000000000000009 /* SecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* SecurityTests.swift */; };
+		A1000000000000000000000A /* ServerProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* ServerProtocolTests.swift */; };
+		A1000000000000000000000B /* libSymTypeMacCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* libSymTypeMacCore.a */; };
+		A1000000000000000000000C /* libSymTypeMacCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* libSymTypeMacCore.a */; };
+		A1000000000000000000000D /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* XCTest.framework */; };
+		A1000000000000000000000E /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* AppIcon.icns */; };
+		A1000000000000000000000F /* SymTypeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* SymTypeUITests.swift */; };
+		A10000000000000000000010 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* XCTest.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A30000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A90000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A70000000000000000000001;
+			remoteInfo = SymTypeMacCore;
+		};
+		A30000000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A90000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A70000000000000000000001;
+			remoteInfo = SymTypeMacCore;
+		};
+		A30000000000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A90000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A70000000000000000000002;
+			remoteInfo = SymType;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A20000000000000000000001 /* ProductConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductConfiguration.swift; sourceTree = "<group>"; };
+		A20000000000000000000002 /* Security.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Security.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* ServerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerProtocol.swift; sourceTree = "<group>"; };
+		A20000000000000000000004 /* ServerSupervisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerSupervisor.swift; sourceTree = "<group>"; };
+		A20000000000000000000005 /* WebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewController.swift; sourceTree = "<group>"; };
+		A20000000000000000000006 /* ApplicationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationController.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A20000000000000000000008 /* ProductConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductConfigurationTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* SecurityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* ServerProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerProtocolTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000000B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A2000000000000000000000C /* SymType.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SymType.entitlements; sourceTree = "<group>"; };
+		A2000000000000000000000D /* Node.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Node.entitlements; sourceTree = "<group>"; };
+		A2000000000000000000000E /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		A2000000000000000000000F /* SymType.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SymType.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000010 /* SymTypeMacCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SymTypeMacCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000011 /* libSymTypeMacCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSymTypeMacCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000012 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		A20000000000000000000014 /* SymTypeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymTypeUITests.swift; sourceTree = "<group>"; };
+		A20000000000000000000015 /* SymTypeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SymTypeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A40000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A40000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000B /* libSymTypeMacCore.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A40000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000C /* libSymTypeMacCore.a in Frameworks */,
+				A1000000000000000000000D /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A40000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000010 /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A50000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000012 /* Package.swift */,
+				A50000000000000000000002 /* SymType */,
+				A50000000000000000000006 /* SymTypeTests */,
+				A5000000000000000000000A /* SymTypeUITests */,
+				A50000000000000000000007 /* Frameworks */,
+				A50000000000000000000008 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A50000000000000000000002 /* SymType */ = {
+			isa = PBXGroup;
+			children = (
+				A50000000000000000000003 /* Sources */,
+				A50000000000000000000005 /* Resources */,
+				A2000000000000000000000B /* Info.plist */,
+				A2000000000000000000000C /* SymType.entitlements */,
+				A2000000000000000000000D /* Node.entitlements */,
+			);
+			path = SymType;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000003 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A50000000000000000000004 /* Core */,
+				A50000000000000000000009 /* App */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000004 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000006 /* ApplicationController.swift */,
+				A20000000000000000000001 /* ProductConfiguration.swift */,
+				A20000000000000000000002 /* Security.swift */,
+				A20000000000000000000003 /* ServerProtocol.swift */,
+				A20000000000000000000004 /* ServerSupervisor.swift */,
+				A20000000000000000000005 /* WebViewController.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000005 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000E /* AppIcon.icns */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000006 /* SymTypeTests */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000008 /* ProductConfigurationTests.swift */,
+				A20000000000000000000009 /* SecurityTests.swift */,
+				A2000000000000000000000A /* ServerProtocolTests.swift */,
+			);
+			path = SymTypeTests;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000007 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000013 /* XCTest.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000F /* SymType.app */,
+				A20000000000000000000011 /* libSymTypeMacCore.a */,
+				A20000000000000000000010 /* SymTypeMacCoreTests.xctest */,
+				A20000000000000000000015 /* SymTypeUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000009 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000007 /* main.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000A /* SymTypeUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000014 /* SymTypeUITests.swift */,
+			);
+			path = SymTypeUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A70000000000000000000001 /* SymTypeMacCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000002 /* Build configuration list for PBXNativeTarget "SymTypeMacCore" */;
+			buildPhases = (
+				A60000000000000000000001 /* Sources */,
+				A40000000000000000000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SymTypeMacCore;
+			productName = SymTypeMacCore;
+			productReference = A20000000000000000000011 /* libSymTypeMacCore.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		A70000000000000000000002 /* SymType */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000003 /* Build configuration list for PBXNativeTarget "SymType" */;
+			buildPhases = (
+				A60000000000000000000002 /* Sources */,
+				A40000000000000000000002 /* Frameworks */,
+				A80000000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB0000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = SymType;
+			productName = SymType;
+			productReference = A2000000000000000000000F /* SymType.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A70000000000000000000003 /* SymTypeMacCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000004 /* Build configuration list for PBXNativeTarget "SymTypeMacCoreTests" */;
+			buildPhases = (
+				A60000000000000000000003 /* Sources */,
+				A40000000000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB0000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = SymTypeMacCoreTests;
+			productName = SymTypeMacCoreTests;
+			productReference = A20000000000000000000010 /* SymTypeMacCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A70000000000000000000004 /* SymTypeUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000005 /* Build configuration list for PBXNativeTarget "SymTypeUITests" */;
+			buildPhases = (
+				A60000000000000000000004 /* Sources */,
+				A40000000000000000000004 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB0000000000000000000003 /* PBXTargetDependency */,
+			);
+			name = SymTypeUITests;
+			productName = SymTypeUITests;
+			productReference = A20000000000000000000015 /* SymTypeUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A90000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					A70000000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					A70000000000000000000002 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					A70000000000000000000003 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = A70000000000000000000002;
+					};
+					A70000000000000000000004 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = A70000000000000000000002;
+					};
+				};
+			};
+			buildConfigurationList = AA0000000000000000000001 /* Build configuration list for PBXProject "SymType" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				zh_CN,
+				Base,
+			);
+			mainGroup = A50000000000000000000001;
+			productRefGroup = A50000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A70000000000000000000002 /* SymType */,
+				A70000000000000000000001 /* SymTypeMacCore */,
+				A70000000000000000000003 /* SymTypeMacCoreTests */,
+				A70000000000000000000004 /* SymTypeUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A80000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000E /* AppIcon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A60000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* ProductConfiguration.swift in Sources */,
+				A10000000000000000000002 /* Security.swift in Sources */,
+				A10000000000000000000003 /* ServerProtocol.swift in Sources */,
+				A10000000000000000000004 /* ServerSupervisor.swift in Sources */,
+				A10000000000000000000005 /* WebViewController.swift in Sources */,
+				A10000000000000000000006 /* ApplicationController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000007 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000008 /* ProductConfigurationTests.swift in Sources */,
+				A10000000000000000000009 /* SecurityTests.swift in Sources */,
+				A1000000000000000000000A /* ServerProtocolTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000F /* SymTypeUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AB0000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A70000000000000000000001 /* SymTypeMacCore */;
+			targetProxy = A30000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		AB0000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A70000000000000000000001 /* SymTypeMacCore */;
+			targetProxy = A30000000000000000000002 /* PBXContainerItemProxy */;
+		};
+		AB0000000000000000000003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A70000000000000000000002 /* SymType */;
+			targetProxy = A30000000000000000000003 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AC0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AC0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AC0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEFINES_MODULE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACH_O_TYPE = staticlib;
+				PRODUCT_MODULE_NAME = SymTypeMacCore;
+				PRODUCT_NAME = SymTypeMacCore;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		AC0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEFINES_MODULE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACH_O_TYPE = staticlib;
+				PRODUCT_MODULE_NAME = SymTypeMacCore;
+				PRODUCT_NAME = SymTypeMacCore;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		AC0000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = SymType/SymType.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = SymType/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 2.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerolab.symtype;
+				PRODUCT_NAME = SymType;
+			};
+			name = Debug;
+		};
+		AC0000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = SymType/SymType.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = SymType/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 2.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerolab.symtype;
+				PRODUCT_NAME = SymType;
+			};
+			name = Release;
+		};
+		AC0000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerolab.symtype.tests;
+				PRODUCT_NAME = SymTypeMacCoreTests;
+				SKIP_INSTALL = YES;
+				TEST_HOST = "";
+			};
+			name = Debug;
+		};
+		AC0000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerolab.symtype.tests;
+				PRODUCT_NAME = SymTypeMacCoreTests;
+				SKIP_INSTALL = YES;
+				TEST_HOST = "";
+			};
+			name = Release;
+		};
+		AC0000000000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerolab.symtype.uitests;
+				PRODUCT_NAME = SymTypeUITests;
+				SKIP_INSTALL = YES;
+				TEST_TARGET_NAME = SymType;
+			};
+			name = Debug;
+		};
+		AC000000000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerolab.symtype.uitests;
+				PRODUCT_NAME = SymTypeUITests;
+				SKIP_INSTALL = YES;
+				TEST_TARGET_NAME = SymType;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA0000000000000000000001 /* Build configuration list for PBXProject "SymType" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0000000000000000000001 /* Debug */,
+				AC0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000002 /* Build configuration list for PBXNativeTarget "SymTypeMacCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0000000000000000000003 /* Debug */,
+				AC0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000003 /* Build configuration list for PBXNativeTarget "SymType" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0000000000000000000005 /* Debug */,
+				AC0000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000004 /* Build configuration list for PBXNativeTarget "SymTypeMacCoreTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0000000000000000000007 /* Debug */,
+				AC0000000000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000005 /* Build configuration list for PBXNativeTarget "SymTypeUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0000000000000000000009 /* Debug */,
+				AC000000000000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A90000000000000000000001 /* Project object */;
+}

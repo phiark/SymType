@@ -529,7 +529,7 @@ export function calculateSessionSummary(
     )
     .map((row) => row.iki_ms as number);
   const measuredMs = eligible.reduce((sum, value) => sum + value, 0);
-  const activeMs = Math.max(1000, givenActiveMs ?? measuredMs);
+  const activeMs = Math.max(1000, Math.round(givenActiveMs ?? measuredMs));
   const accuracy = characters === 0 ? 0 : correct / characters;
   const finalText = summarizeFinalText(rows, correctionCheckpoint);
   const rawWpm = calculateRawWpm(characters, activeMs);
