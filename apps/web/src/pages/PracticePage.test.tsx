@@ -147,6 +147,34 @@ describe("PracticePage desktop lifecycle", () => {
 });
 
 describe("PracticePage completed-block retry", () => {
+  it("resets the typing surface when the next block repeats the same target text", async () => {
+    let blockRequests = 0;
+    const postImplementation: typeof api.post = <T,>(path: string) => {
+      if (path === "/api/v1/sessions") return Promise.resolve(session as T);
+      if (path.includes("/blocks/next")) {
+        const response = block(blockRequests, "a");
+        blockRequests += 1;
+        return Promise.resolve(response as T);
+      }
+      if (path.endsWith("/events")) {
+        return Promise.resolve({ result: { accepted: 1 } } as T);
+      }
+      if (path.endsWith("/pause")) return Promise.resolve({ saved: true } as T);
+      return Promise.reject(new Error(`unexpected POST ${path}`));
+    };
+    const post = vi.spyOn(api, "post").mockImplementation(postImplementation);
+
+    renderPractice("/train/session?mode=smart&duration=5&seed=7");
+    const completedSurface = await typeFirstBlock();
+
+    await waitFor(() => expect(screen.getByText("0/1")).toBeVisible());
+    const nextSurface = screen.getByRole("textbox", { name: "打字练习输入区" });
+
+    expect(nextSurface).not.toBe(completedSurface);
+    expect(nextSurface.querySelector(".typing-glyph.is-current")).toHaveTextContent("a");
+    expect(eventBatchCalls(post)).toHaveLength(1);
+  });
+
   it("keeps the completed block stable and retries next-block loading without reposting events", async () => {
     let blockRequests = 0;
     const postImplementation: typeof api.post = <T,>(path: string) => {
@@ -176,7 +204,11 @@ describe("PracticePage completed-block retry", () => {
 
     fireEvent.click(retry);
 
-    await waitFor(() => expect(within(surface).getByText("b")).toBeVisible());
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("textbox", { name: "打字练习输入区" })).getByText("b")
+      ).toBeVisible()
+    );
     expect(screen.queryByRole("button", { name: /重试保存并继续/u })).not.toBeInTheDocument();
     expect(eventBatchCalls(post)).toHaveLength(1);
     expect(post.mock.calls.filter(([path]) => String(path).includes("/blocks/next"))).toHaveLength(
@@ -217,7 +249,11 @@ describe("PracticePage completed-block retry", () => {
 
     fireEvent.click(retry);
 
-    await waitFor(() => expect(within(surface).getByText("b")).toBeVisible());
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("textbox", { name: "打字练习输入区" })).getByText("b")
+      ).toBeVisible()
+    );
     expect(eventBatchCalls(post)).toHaveLength(1);
     expect(patch).toHaveBeenCalledTimes(2);
     expect(patch.mock.calls[0]).toEqual(patch.mock.calls[1]);
