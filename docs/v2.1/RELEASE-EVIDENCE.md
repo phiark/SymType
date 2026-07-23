@@ -26,12 +26,21 @@ npm run format:check
 npm run check
 npm run test:regression
 npm run macos:test
+npm run macos:icon
 xcodebuild test \
   -project apps/macos/SymType.xcodeproj \
   -scheme SymType \
+  -configuration Debug \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath /tmp/SymTypeTests \
-  CODE_SIGNING_ALLOWED=NO
+  CODE_SIGNING_ALLOWED=YES \
+  CODE_SIGNING_REQUIRED=YES \
+  CODE_SIGN_STYLE=Manual \
+  CODE_SIGN_IDENTITY=- \
+  DEVELOPMENT_TEAM= \
+  ONLY_ACTIVE_ARCH=YES \
+  ARCHS=arm64 \
+  MACOSX_DEPLOYMENT_TARGET=15.0
 npm run test:e2e
 npm run macos:package
 ```
@@ -82,6 +91,8 @@ Record machine/macOS build, exact candidate SHA, result, and evidence path for:
 - unexpected owned-Node termination, explicit restart prompt, replacement handshake validation, and
   clear warning that unacknowledged input may require retyping;
 - same-version service reuse and incompatible-service conflict without killing either owner;
+- a second service targeting the same data directory fails before opening SQLite while the original
+  owner remains healthy and its integrity/data remain unchanged;
 - old database upgrade, WebKit data clearing, app deletion/reinstall, and fallback browser launcher
   with history preserved;
 - icon review at 16, 32, 64, 128, 256, 512, and 1024 px;

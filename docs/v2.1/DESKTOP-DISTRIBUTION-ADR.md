@@ -10,6 +10,10 @@ SymType 2.0 deliberately excluded a desktop shell. That historical scope remains
 rewritten. SymType 2.1 introduces a distribution layer after 2.0 while preserving all browser
 routes, API contracts, training behavior, and SQLite data semantics.
 
+The compatibility boundary also preserves metric math: the existing integer `activeMs`
+persistence/API field is rounded at that boundary only, while WPM continues to use the original
+fractional measured duration.
+
 The application must run offline on Apple Silicon without a system Node.js installation. SQLite in
 the existing application-support directory remains authoritative; WebKit storage is only a cache.
 The first distribution is for personal/internal testing and must not claim Developer ID signing or
@@ -25,8 +29,9 @@ Apple notarization.
 - Package the built server, built Web client, internal packages, and only the installed production
   dependency closure under `Contents/Resources/app`. Runtime code never invokes npm or writes the
   application bundle.
-- Preserve `~/Library/Application Support/SymType` and `SYMTYPE_DATA_DIR`; do not add a second
-  desktop database or silently migrate/rebuild a failed database.
+- The native application always uses `~/Library/Application Support/SymType`. Browser/source
+  launchers retain their existing `SYMTYPE_DATA_DIR` override; do not add a second desktop database
+  or silently migrate/rebuild a failed database.
 - Keep `start.command`, `start.sh`, `start.bat`, and the npm local launchers as supported fallback
   paths.
 
@@ -80,11 +85,24 @@ with a byte count and hash. The shell validates critical resources before launch
 - A random launch nonce and verified child PID tie the native shell to its own service. A compatible
   external service may be reused but is never killed; an incompatible owner is reported as a
   conflict.
-- `Cmd-W` hides the single retained window. `Cmd-Q` uses the typed Web lifecycle bridge, flushes
-  pending events, then requests graceful child shutdown. A parent-watch pipe prevents an orphan
-  service after a native crash. If the owned Node process stops unexpectedly, the shell clears only
-  that dead child, offers an explicit service restart, validates the replacement before reloading
-  WebKit, and warns that input not yet acknowledged by SQLite may need to be retyped.
+- Before opening SQLite, each service atomically publishes a tokenized `server-runtime.lock`.
+  Another live PID owning the same data directory is rejected without touching the database.
+  Stale recovery and release first move the lock to a private path, then validate its PID/token
+  record before deleting it.
+- `Cmd-W` hides the single retained window. Its save acknowledgement has a five-second bound, and a
+  stale callback cannot hide a replacement WebView.
+- `Cmd-Q` reveals a hidden window and uses the typed Web lifecycle bridge. Time spent in the
+  existing user confirmation has no fixed deadline; renderer liveness and the subsequent local
+  flush remain bounded. After confirmation the shell requests graceful child shutdown. If Node has
+  not exited within ten seconds, the user may retry or cancel; the app never silently sends
+  `SIGKILL`.
+- Recovery prompts, replacement startup, and termination are serialized. Cancelling termination
+  resumes a deferred crash recovery; confirming termination rechecks process ownership and always
+  follows the same owned-server shutdown path.
+- A parent-watch pipe prevents an orphan service after a native crash. If the owned Node process
+  stops unexpectedly, the shell clears only that dead child, offers an explicit service restart,
+  validates the replacement before reloading WebKit, and warns that input not yet acknowledged by
+  SQLite may need to be retyped.
 - Main-frame navigation is limited to the verified loopback origin. User-initiated HTTPS links open
   in the default browser; other external navigation and popups are rejected.
 - Import and export continue through the existing API validation and backup paths. Native open/save
