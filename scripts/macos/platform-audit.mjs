@@ -116,9 +116,7 @@ async function assertArm64MachO(appPath) {
       capture: true,
       quiet: true
     });
-    const minimumVersions = [
-      ...loadCommands.stdout.matchAll(/^\s+(?:minos|version)\s+([0-9]+(?:\.[0-9]+){1,2})$/gm)
-    ].map((match) => match[1]);
+    const minimumVersions = extractMacOSMinimumVersions(loadCommands.stdout);
     if (minimumVersions.length === 0) {
       throw new Error(`${relative(appPath, file)} does not declare a macOS minimum version`);
     }
@@ -145,6 +143,22 @@ async function assertArm64MachO(appPath) {
     }
   }
   return machOFiles;
+}
+
+export function extractMacOSMinimumVersions(loadCommands) {
+  const versions = [];
+  const commandBlocks = loadCommands.split(/(?=^Load command \d+\s*$)/gm);
+  for (const block of commandBlocks) {
+    const command = block.match(/^\s*cmd\s+(LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX)\s*$/m)?.[1];
+    if (command === "LC_BUILD_VERSION") {
+      const minimum = block.match(/^\s*minos\s+([0-9]+(?:\.[0-9]+){1,2})\s*$/m)?.[1];
+      if (minimum) versions.push(minimum);
+    } else if (command === "LC_VERSION_MIN_MACOSX") {
+      const minimum = block.match(/^\s*version\s+([0-9]+(?:\.[0-9]+){1,2})\s*$/m)?.[1];
+      if (minimum) versions.push(minimum);
+    }
+  }
+  return versions;
 }
 
 function compareVersions(left, right) {
