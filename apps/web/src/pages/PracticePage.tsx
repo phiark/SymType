@@ -1214,8 +1214,8 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           </div>
           <TypingSurface
             ref={surfaceRef}
-            key={block.id}
             target={block.target_text}
+            blockIdentity={block.id}
             mode={
               mode === "calibration" && block.block_type.startsWith("calibration-")
                 ? block.block_type

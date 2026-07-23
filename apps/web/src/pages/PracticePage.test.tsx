@@ -147,7 +147,7 @@ describe("PracticePage desktop lifecycle", () => {
 });
 
 describe("PracticePage completed-block retry", () => {
-  it("resets the typing surface when the next block repeats the same target text", async () => {
+  it("resets the mounted typing surface without losing focus when the next block repeats the target", async () => {
     let blockRequests = 0;
     const postImplementation: typeof api.post = <T,>(path: string) => {
       if (path === "/api/v1/sessions") return Promise.resolve(session as T);
@@ -170,7 +170,8 @@ describe("PracticePage completed-block retry", () => {
     await waitFor(() => expect(screen.getByText("0/1")).toBeVisible());
     const nextSurface = screen.getByRole("textbox", { name: "打字练习输入区" });
 
-    expect(nextSurface).not.toBe(completedSurface);
+    expect(nextSurface).toBe(completedSurface);
+    await waitFor(() => expect(nextSurface).toHaveFocus());
     expect(nextSurface.querySelector(".typing-glyph.is-current")).toHaveTextContent("a");
     expect(eventBatchCalls(post)).toHaveLength(1);
   });
