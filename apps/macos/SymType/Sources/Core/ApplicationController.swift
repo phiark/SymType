@@ -2,12 +2,115 @@ import AppKit
 import Foundation
 import OSLog
 
+struct ServerAvailabilityState {
+  private(set) var failureDetail: String?
+
+  var isUnavailable: Bool {
+    failureDetail != nil
+  }
+
+  mutating func recordFailure(_ detail: String) {
+    failureDetail = detail
+  }
+
+  mutating func recordRecovery() {
+    failureDetail = nil
+  }
+
+  func deferredRecoveryDetail(
+    terminationInFlight: Bool,
+    recoveryInFlight: Bool
+  ) -> String? {
+    guard !terminationInFlight, !recoveryInFlight else {
+      return nil
+    }
+    return failureDetail
+  }
+}
+
+struct HideRequestState {
+  private var generation = 0
+  private(set) var isInFlight = false
+
+  mutating func begin() -> Int? {
+    guard !isInFlight else {
+      return nil
+    }
+    generation += 1
+    isInFlight = true
+    return generation
+  }
+
+  mutating func complete(generation requestGeneration: Int) -> Bool {
+    guard isInFlight, generation == requestGeneration else {
+      return false
+    }
+    isInFlight = false
+    return true
+  }
+
+  mutating func invalidate() {
+    generation += 1
+    isInFlight = false
+  }
+}
+
+@MainActor
+final class ServerRecoveryGate {
+  private(set) var isInFlight = false
+  private var idleWaiters: [CheckedContinuation<Void, Never>] = []
+
+  func begin() -> Bool {
+    guard !isInFlight else {
+      return false
+    }
+    isInFlight = true
+    return true
+  }
+
+  func finish() {
+    guard isInFlight else {
+      return
+    }
+    isInFlight = false
+    let waiters = idleWaiters
+    idleWaiters.removeAll()
+    for waiter in waiters {
+      waiter.resume()
+    }
+  }
+
+  func waitUntilIdle() async {
+    guard isInFlight else {
+      return
+    }
+    await withCheckedContinuation { continuation in
+      idleWaiters.append(continuation)
+    }
+  }
+}
+
+enum ServerTerminationBridgeDisposition: Equatable {
+  case requestBridge
+  case skipBridge
+}
+
+enum ServerTerminationPolicy {
+  static let shutdownTimeout = Duration.seconds(10)
+
+  static func bridgeDispositionAfterConfirmedFailure(
+    serverIsStillUnavailable: Bool
+  ) -> ServerTerminationBridgeDisposition {
+    serverIsStillUnavailable ? .skipBridge : .requestBridge
+  }
+}
+
 @MainActor
 public final class SymTypeWindowController: NSWindowController, NSWindowDelegate {
   private let rootViewController = NSViewController()
   private let statusLabel = NSTextField(labelWithString: "正在安全启动 SymType…")
   private var webController: DesktopWebViewController?
-  private var hideRequestInFlight = false
+  private var hideRequestState = HideRequestState()
 
   public init() {
     let window = NSWindow(
@@ -42,6 +145,29 @@ public final class SymTypeWindowController: NSWindowController, NSWindowDelegate
   }
 
   public func load(origin: ServerOrigin) {
+    let controller = DesktopWebViewController(origin: origin)
+    install(controller)
+    controller.loadApplication()
+  }
+
+#if DEBUG
+  public func loadUITestHarness() {
+    guard let origin = try? ServerOrigin(
+      validating: URL(string: "http://127.0.0.1:4173/")!
+    ) else {
+      return
+    }
+    let controller = DesktopWebViewController(origin: origin)
+    install(controller)
+    controller.loadUITestHarness()
+  }
+#endif
+
+  private func install(_ controller: DesktopWebViewController) {
+    // A recovery can replace the WebView while the old renderer is still answering a hide
+    // request. Invalidate that request before installing the replacement so its late callback
+    // cannot hide the newly recovered window.
+    hideRequestState.invalidate()
     if let existing = webController {
       existing.navigationFailureHandler = nil
       existing.downloadFailureHandler = nil
@@ -50,7 +176,6 @@ public final class SymTypeWindowController: NSWindowController, NSWindowDelegate
       existing.removeFromParent()
       webController = nil
     }
-    let controller = DesktopWebViewController(origin: origin)
     controller.navigationFailureHandler = { [weak self] error in
       self?.presentError(
         title: "无法加载 SymType",
@@ -74,7 +199,6 @@ public final class SymTypeWindowController: NSWindowController, NSWindowDelegate
     ])
     statusLabel.removeFromSuperview()
     webController = controller
-    controller.loadApplication()
   }
 
   public func reveal() {
@@ -90,17 +214,23 @@ public final class SymTypeWindowController: NSWindowController, NSWindowDelegate
     return await webController.requestQuit()
   }
 
+  public func prepareForTerminationRequest() {
+    hideRequestState.invalidate()
+    reveal()
+  }
+
   public func windowShouldClose(_ sender: NSWindow) -> Bool {
-    guard !hideRequestInFlight else {
+    guard let requestGeneration = hideRequestState.begin() else {
       return false
     }
-    hideRequestInFlight = true
     Task { @MainActor [weak self, weak sender] in
       guard let self else {
         return
       }
       let result = await self.webController?.prepareToHide() ?? .ready
-      self.hideRequestInFlight = false
+      guard self.hideRequestState.complete(generation: requestGeneration) else {
+        return
+      }
       switch result {
       case .ready:
         sender?.orderOut(nil)
@@ -202,9 +332,8 @@ public final class SymTypeAppDelegate: NSObject, NSApplicationDelegate {
   private var supervisor: ServerSupervisor?
   private var instanceLock: ApplicationInstanceLock?
   private var terminationInFlight = false
-  private var serverRecoveryInFlight = false
-  private var serverUnavailableAfterCrash = false
-  private var lastServerFailureDetail: String?
+  private let serverRecoveryGate = ServerRecoveryGate()
+  private var serverAvailability = ServerAvailabilityState()
 
   public override init() {
     super.init()
@@ -215,6 +344,7 @@ public final class SymTypeAppDelegate: NSObject, NSApplicationDelegate {
     installMainMenu()
 #if DEBUG
     if CommandLine.arguments.contains("--symtype-ui-testing") {
+      windowController.loadUITestHarness()
       windowController.reveal()
       return
     }
@@ -295,13 +425,7 @@ public final class SymTypeAppDelegate: NSObject, NSApplicationDelegate {
     if windowController.window?.isVisible == false, !terminationInFlight {
       windowController.reveal()
     }
-    if serverUnavailableAfterCrash,
-       !serverRecoveryInFlight,
-       let lastServerFailureDetail {
-      Task { @MainActor [weak self] in
-        await self?.recoverFromUnexpectedServerExit(detail: lastServerFailureDetail)
-      }
-    }
+    resumeDeferredServerRecoveryIfNeeded()
   }
 
   public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -309,36 +433,63 @@ public final class SymTypeAppDelegate: NSObject, NSApplicationDelegate {
       return .terminateLater
     }
     terminationInFlight = true
+    windowController.prepareForTerminationRequest()
     Task { @MainActor [weak self] in
       guard let self else {
         sender.reply(toApplicationShouldTerminate: false)
         return
       }
-      if self.serverUnavailableAfterCrash {
-        let confirmed = await self.windowController.confirmQuitAfterServerFailure()
-        if !confirmed {
-          self.terminationInFlight = false
-        }
-        sender.reply(toApplicationShouldTerminate: confirmed)
-        return
-      }
-      let bridgeResult = await self.windowController.requestQuit()
-      guard bridgeResult == .ready else {
-        self.terminationInFlight = false
-        if bridgeResult == .failed {
-          self.windowController.reveal()
-          self.windowController.presentError(
-            title: "尚未退出",
-            detail: "待保存数据没有确认写入。SymType 和本地服务仍保持运行。"
-          )
-        }
-        sender.reply(toApplicationShouldTerminate: false)
+      // A recovery sheet or restart owns the supervisor until it reaches a stable state. Waiting
+      // here prevents two sheets and prevents quit from racing a newly launched Node process.
+      await self.serverRecoveryGate.waitUntilIdle()
+      guard self.terminationInFlight else {
         return
       }
 
-      while true {
+      if self.serverAvailability.isUnavailable {
+        let confirmed = await self.windowController.confirmQuitAfterServerFailure()
+        guard self.terminationInFlight else {
+          return
+        }
+        guard confirmed else {
+          self.cancelTermination(sender)
+          return
+        }
+        // The service can recover while the warning sheet is open. Re-check after the await:
+        // a recovered renderer must still flush through the normal bridge before shutdown.
+        let bridgeDisposition =
+          ServerTerminationPolicy.bridgeDispositionAfterConfirmedFailure(
+            serverIsStillUnavailable: self.serverAvailability.isUnavailable
+          )
+        if bridgeDisposition == .requestBridge {
+          let bridgeResult = await self.windowController.requestQuit()
+          guard self.terminationInFlight else {
+            return
+          }
+          guard bridgeResult == .ready else {
+            self.handleRejectedBridgeResult(bridgeResult, sender: sender)
+            return
+          }
+        }
+      } else {
+        let bridgeResult = await self.windowController.requestQuit()
+        guard self.terminationInFlight else {
+          return
+        }
+        guard bridgeResult == .ready else {
+          self.handleRejectedBridgeResult(bridgeResult, sender: sender)
+          return
+        }
+      }
+
+      while self.terminationInFlight {
         do {
-          try await self.supervisor?.stopOwnedServer()
+          try await self.supervisor?.stopOwnedServer(
+            timeout: ServerTerminationPolicy.shutdownTimeout
+          )
+          guard self.terminationInFlight else {
+            return
+          }
           sender.reply(toApplicationShouldTerminate: true)
           return
         } catch {
@@ -346,9 +497,11 @@ public final class SymTypeAppDelegate: NSObject, NSApplicationDelegate {
           let retry = await self.windowController.chooseShutdownRetry(
             detail: error.localizedDescription
           )
+          guard self.terminationInFlight else {
+            return
+          }
           if !retry {
-            self.terminationInFlight = false
-            sender.reply(toApplicationShouldTerminate: false)
+            self.cancelTermination(sender)
             return
           }
         }
@@ -358,32 +511,71 @@ public final class SymTypeAppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func recoverFromUnexpectedServerExit(detail initialDetail: String) async {
-    guard !terminationInFlight, !serverRecoveryInFlight, let supervisor else {
+    serverAvailability.recordFailure(initialDetail)
+    guard !terminationInFlight, let supervisor, serverRecoveryGate.begin() else {
       return
     }
-    serverRecoveryInFlight = true
-    serverUnavailableAfterCrash = true
-    lastServerFailureDetail = initialDetail
     defer {
-      serverRecoveryInFlight = false
+      serverRecoveryGate.finish()
     }
 
     var detail = initialDetail
     while !terminationInFlight {
       windowController.reveal()
-      guard await windowController.chooseServerRestart(detail: detail) else {
+      let shouldRestart = await windowController.chooseServerRestart(detail: detail)
+      guard !terminationInFlight else {
+        return
+      }
+      guard shouldRestart else {
         return
       }
       do {
         let server = try await supervisor.start()
+        // Quit may have started while Node was launching. Leave the availability failure in
+        // place and let the single shutdown path stop any owned process; never install a new
+        // WebView underneath an in-flight termination request.
+        guard !terminationInFlight else {
+          return
+        }
         windowController.load(origin: server.origin)
-        serverUnavailableAfterCrash = false
-        lastServerFailureDetail = nil
+        serverAvailability.recordRecovery()
         return
       } catch {
         detail = "重新启动没有完成：\(error.localizedDescription)"
-        lastServerFailureDetail = detail
+        serverAvailability.recordFailure(detail)
       }
+    }
+  }
+
+  private func cancelTermination(_ sender: NSApplication) {
+    terminationInFlight = false
+    sender.reply(toApplicationShouldTerminate: false)
+    resumeDeferredServerRecoveryIfNeeded()
+  }
+
+  private func handleRejectedBridgeResult(
+    _ bridgeResult: DesktopBridgeResult,
+    sender: NSApplication
+  ) {
+    if bridgeResult == .failed {
+      windowController.reveal()
+      windowController.presentError(
+        title: "尚未退出",
+        detail: "待保存数据没有确认写入。SymType 和本地服务仍保持运行。"
+      )
+    }
+    cancelTermination(sender)
+  }
+
+  private func resumeDeferredServerRecoveryIfNeeded() {
+    guard let detail = serverAvailability.deferredRecoveryDetail(
+      terminationInFlight: terminationInFlight,
+      recoveryInFlight: serverRecoveryGate.isInFlight
+    ) else {
+      return
+    }
+    Task { @MainActor [weak self] in
+      await self?.recoverFromUnexpectedServerExit(detail: detail)
     }
   }
 

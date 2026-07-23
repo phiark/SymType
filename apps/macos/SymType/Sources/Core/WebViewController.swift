@@ -3,9 +3,24 @@ import Foundation
 import UniformTypeIdentifiers
 import WebKit
 
-enum DesktopBridgeMethod {
+enum DesktopBridgeMethod: Equatable {
   case prepareToHide
   case requestQuit
+
+  var callbackTimeout: Duration? {
+    switch self {
+    case .prepareToHide:
+      return .seconds(5)
+    case .requestQuit:
+      // An active session keeps this promise pending while the user decides in the existing
+      // training-exit dialog. User decision time is not a renderer timeout.
+      return nil
+    }
+  }
+
+  var requiresRendererLiveness: Bool {
+    self == .requestQuit
+  }
 
   var javaScript: String {
     let methodName: String
@@ -41,6 +56,7 @@ private struct DownloadDestination {
 private final class CallbackDeadlineState<Value> {
   private var continuation: CheckedContinuation<Value, Never>?
   var timeoutTask: Task<Void, Never>?
+  var monitorTask: Task<Void, Never>?
 
   init(continuation: CheckedContinuation<Value, Never>) {
     self.continuation = continuation
@@ -53,6 +69,8 @@ private final class CallbackDeadlineState<Value> {
     self.continuation = nil
     timeoutTask?.cancel()
     timeoutTask = nil
+    monitorTask?.cancel()
+    monitorTask = nil
     continuation.resume(returning: value)
   }
 }
@@ -72,6 +90,43 @@ enum CallbackDeadline {
           return
         }
         state.finish(timeoutValue)
+      }
+      begin { value in
+        Task { @MainActor in
+          state.finish(value)
+        }
+      }
+    }
+  }
+}
+
+@MainActor
+enum CallbackLivenessMonitor {
+  static func resolve<Value>(
+    heartbeatInterval: Duration,
+    heartbeatTimeout: Duration,
+    failureValue: Value,
+    begin: (@escaping (Value) -> Void) -> Void,
+    heartbeat: @escaping (@escaping (Bool) -> Void) -> Void
+  ) async -> Value {
+    await withCheckedContinuation { continuation in
+      let state = CallbackDeadlineState(continuation: continuation)
+      state.monitorTask = Task { @MainActor in
+        while !Task.isCancelled {
+          try? await Task.sleep(for: heartbeatInterval)
+          guard !Task.isCancelled else {
+            return
+          }
+          let rendererIsAlive = await CallbackDeadline.resolve(
+            timeout: heartbeatTimeout,
+            timeoutValue: false,
+            begin: heartbeat
+          )
+          guard rendererIsAlive else {
+            state.finish(failureValue)
+            return
+          }
+        }
       }
       begin { value in
         Task { @MainActor in
@@ -139,6 +194,66 @@ public final class DesktopWebViewController: NSViewController {
     webView.load(request)
   }
 
+#if DEBUG
+  public func loadUITestHarness() {
+    pageIsReady = false
+    webView.loadHTMLString(
+      """
+      <!doctype html>
+      <html lang="zh-CN">
+        <head>
+          <meta charset="utf-8">
+          <title>SymType 原生测试</title>
+          <style>
+            body { font: 18px -apple-system; padding: 40px; }
+            button { display: block; margin: 16px 0; padding: 12px 18px; }
+            [hidden] { display: none; }
+          </style>
+        </head>
+        <body>
+          <h1>SymType 原生测试</h1>
+          <button id="dialog-test" type="button">测试 JavaScript 对话框</button>
+          <button id="import-test" type="button">测试导入面板</button>
+          <input id="import-input" type="file" accept=".json,.sqlite,.sqlite3,.db" hidden>
+          <section id="quit-confirmation" role="dialog" aria-label="结束这次训练？" hidden>
+            <h2>结束这次训练？</h2>
+            <button id="cancel-quit" type="button">继续训练</button>
+            <button id="confirm-quit" type="button">保存并退出</button>
+          </section>
+          <script>
+            let resolveQuit = null;
+            document.getElementById("dialog-test").addEventListener("click", () => {
+              alert("测试 JavaScript 对话框已打开");
+            });
+            document.getElementById("import-test").addEventListener("click", () => {
+              document.getElementById("import-input").click();
+            });
+            document.getElementById("cancel-quit").addEventListener("click", () => {
+              document.getElementById("quit-confirmation").hidden = true;
+              resolveQuit?.("cancelled");
+              resolveQuit = null;
+            });
+            document.getElementById("confirm-quit").addEventListener("click", () => {
+              document.getElementById("quit-confirmation").hidden = true;
+              resolveQuit?.("ready");
+              resolveQuit = null;
+            });
+            window.symtypeDesktop = {
+              prepareToHide: () => Promise.resolve("ready"),
+              requestQuit: () => {
+                document.getElementById("quit-confirmation").hidden = false;
+                return new Promise(resolve => { resolveQuit = resolve; });
+              }
+            };
+          </script>
+        </body>
+      </html>
+      """,
+      baseURL: origin.url
+    )
+  }
+#endif
+
   public func prepareToHide() async -> DesktopBridgeResult {
     await invoke(.prepareToHide)
   }
@@ -151,10 +266,8 @@ public final class DesktopWebViewController: NSViewController {
     guard pageIsReady else {
       return .ready
     }
-    return await CallbackDeadline.resolve(
-      timeout: .seconds(5),
-      timeoutValue: .failed
-    ) { [weak webView] completion in
+    let invokeJavaScript: (@escaping (DesktopBridgeResult) -> Void) -> Void = {
+      [weak webView] completion in
       guard let webView else {
         completion(.failed)
         return
@@ -176,6 +289,34 @@ public final class DesktopWebViewController: NSViewController {
         case .failure:
           completion(.failed)
         }
+      }
+    }
+    if let callbackTimeout = method.callbackTimeout {
+      return await CallbackDeadline.resolve(
+        timeout: callbackTimeout,
+        timeoutValue: .failed,
+        begin: invokeJavaScript
+      )
+    }
+    if method.requiresRendererLiveness {
+      return await CallbackLivenessMonitor.resolve(
+        heartbeatInterval: .seconds(2),
+        heartbeatTimeout: .seconds(2),
+        failureValue: .failed,
+        begin: invokeJavaScript
+      ) { [weak webView] completion in
+        guard let webView else {
+          completion(false)
+          return
+        }
+        webView.evaluateJavaScript("true") { value, error in
+          completion(error == nil && (value as? Bool) == true)
+        }
+      }
+    }
+    return await withCheckedContinuation { continuation in
+      invokeJavaScript { result in
+        continuation.resume(returning: result)
       }
     }
   }

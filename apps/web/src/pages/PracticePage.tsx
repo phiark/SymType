@@ -348,7 +348,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     () => criticalMutationTokensRef.current.size > 0,
     []
   );
-  const { completeDesktopQuitRequest } = useDesktopSessionLifecycle({
+  const { completeDesktopQuitRequest, runDesktopQuitPersistence } = useDesktopSessionLifecycle({
     active: Boolean(sessionId) && state !== "complete",
     isCriticalMutationInFlight,
     flush,
@@ -754,13 +754,15 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     setExitSaving(true);
     setSaveError("");
     try {
-      if (sessionIdRef.current) {
-        const correctionCheckpoint = currentCorrectionCheckpoint();
-        await flush();
-        await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
-          ...(correctionCheckpoint ? { correctionCheckpoint } : {})
-        });
-      }
+      await runDesktopQuitPersistence(async () => {
+        if (sessionIdRef.current) {
+          const correctionCheckpoint = currentCorrectionCheckpoint();
+          await flush();
+          await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
+            ...(correctionCheckpoint ? { correctionCheckpoint } : {})
+          });
+        }
+      });
       sessionIdRef.current = null;
       lessonIdRef.current = null;
       blockIdRef.current = null;

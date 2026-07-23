@@ -280,6 +280,120 @@ final class ServerProtocolTests: XCTestCase {
     XCTAssertLessThan(ContinuousClock.now - started, .seconds(1))
   }
 
+  func testQuitBridgeDoesNotTreatUserDecisionTimeAsARendererDeadline() {
+    XCTAssertEqual(DesktopBridgeMethod.prepareToHide.callbackTimeout, .seconds(5))
+    XCTAssertNil(DesktopBridgeMethod.requestQuit.callbackTimeout)
+    XCTAssertFalse(DesktopBridgeMethod.prepareToHide.requiresRendererLiveness)
+    XCTAssertTrue(DesktopBridgeMethod.requestQuit.requiresRendererLiveness)
+  }
+
+  @MainActor
+  func testQuitBridgeKeepsWaitingWhileTheRendererAnswersHeartbeats() async {
+    var heartbeatCount = 0
+    let result: DesktopBridgeResult = await CallbackLivenessMonitor.resolve(
+      heartbeatInterval: .milliseconds(10),
+      heartbeatTimeout: .milliseconds(20),
+      failureValue: .failed
+    ) { completion in
+      Task { @MainActor in
+        try? await Task.sleep(for: .milliseconds(80))
+        completion(.cancelled)
+      }
+    } heartbeat: { completion in
+      heartbeatCount += 1
+      completion(true)
+    }
+
+    XCTAssertEqual(result, .cancelled)
+    XCTAssertGreaterThanOrEqual(heartbeatCount, 2)
+  }
+
+  @MainActor
+  func testQuitBridgeFailsWhenTheRendererStopsAnsweringHeartbeats() async {
+    let started = ContinuousClock.now
+    let result: DesktopBridgeResult = await CallbackLivenessMonitor.resolve(
+      heartbeatInterval: .milliseconds(10),
+      heartbeatTimeout: .milliseconds(20),
+      failureValue: .failed
+    ) { _ in
+      // The requestQuit promise never settles.
+    } heartbeat: { _ in
+      // A hung renderer never answers the fixed liveness probe.
+    }
+
+    XCTAssertEqual(result, .failed)
+    XCTAssertLessThan(ContinuousClock.now - started, .seconds(1))
+  }
+
+  func testInstallingAReplacementWebViewInvalidatesTheOldHideCallback() throws {
+    var state = HideRequestState()
+    let oldRequest = try XCTUnwrap(state.begin())
+
+    state.invalidate()
+
+    XCTAssertFalse(state.complete(generation: oldRequest))
+    XCTAssertFalse(state.isInFlight)
+    let replacementRequest = try XCTUnwrap(state.begin())
+    XCTAssertTrue(state.complete(generation: replacementRequest))
+  }
+
+  @MainActor
+  func testTerminationWaitsUntilRecoveryReleasesTheSupervisor() async {
+    let gate = ServerRecoveryGate()
+    XCTAssertTrue(gate.begin())
+    var didResume = false
+    let waiter = Task { @MainActor in
+      await gate.waitUntilIdle()
+      didResume = true
+    }
+    await Task.yield()
+    XCTAssertFalse(didResume)
+
+    gate.finish()
+    await waiter.value
+
+    XCTAssertTrue(didResume)
+    XCTAssertFalse(gate.isInFlight)
+  }
+
+  func testConfirmedUnavailableQuitRechecksRecoveryAndUsesOneShutdownDeadline() {
+    XCTAssertEqual(ServerTerminationPolicy.shutdownTimeout, .seconds(10))
+    XCTAssertEqual(
+      ServerTerminationPolicy.bridgeDispositionAfterConfirmedFailure(
+        serverIsStillUnavailable: true
+      ),
+      .skipBridge
+    )
+    XCTAssertEqual(
+      ServerTerminationPolicy.bridgeDispositionAfterConfirmedFailure(
+        serverIsStillUnavailable: false
+      ),
+      .requestBridge
+    )
+  }
+
+  func testLateServerExitIsDeferredUntilAQuitCancellationFinishes() {
+    var availability = ServerAvailabilityState()
+    availability.recordFailure("Node stopped after the shutdown timeout")
+
+    XCTAssertNil(
+      availability.deferredRecoveryDetail(
+        terminationInFlight: true,
+        recoveryInFlight: false
+      )
+    )
+    XCTAssertEqual(
+      availability.deferredRecoveryDetail(
+        terminationInFlight: false,
+        recoveryInFlight: false
+      ),
+      "Node stopped after the shutdown timeout"
+    )
+
+    availability.recordRecovery()
+    XCTAssertFalse(availability.isUnavailable)
+  }
+
   @MainActor
   func testDesktopBridgeScriptReturnsTheValidatedPromiseResult() async throws {
     let webView = WKWebView(frame: .zero)

@@ -16,6 +16,33 @@ interface PendingQuitRequest {
   resolve: (result: DesktopLifecycleResult) => void;
 }
 
+const DESKTOP_PERSISTENCE_TIMEOUT_MS = 10_000;
+
+class DesktopPersistenceTimeoutError extends Error {
+  constructor() {
+    super("保存等待超过 10 秒；尚未确认写入的数据仍保留在当前页面。");
+    this.name = "DesktopPersistenceTimeoutError";
+  }
+}
+
+function withDesktopPersistenceDeadline<T>(operation: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new DesktopPersistenceTimeoutError());
+    }, DESKTOP_PERSISTENCE_TIMEOUT_MS);
+    operation.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout);
+        reject(error instanceof Error ? error : new Error("保存请求未能完成。"));
+      }
+    );
+  });
+}
+
 export function useDesktopSessionLifecycle({
   active,
   isCriticalMutationInFlight,
@@ -48,10 +75,28 @@ export function useDesktopSessionLifecycle({
     pending.resolve(result);
   }, []);
 
+  const runDesktopQuitPersistence = useCallback(
+    async <T>(operation: () => Promise<T>): Promise<T> => {
+      // Browser navigation keeps its existing persistence semantics. The deadline is introduced
+      // only while native Cmd-Q is waiting, after the user has explicitly chosen to save/exit.
+      if (!pendingQuitRef.current) return operation();
+      try {
+        return await withDesktopPersistenceDeadline(operation());
+      } catch (error) {
+        if (error instanceof DesktopPersistenceTimeoutError) {
+          onErrorRef.current(error.message);
+          completeDesktopQuitRequest("failed");
+        }
+        throw error;
+      }
+    },
+    [completeDesktopQuitRequest]
+  );
+
   useEffect(() => {
     const persistPendingEvents = async (): Promise<DesktopLifecycleResult> => {
       try {
-        await flushRef.current();
+        await withDesktopPersistenceDeadline(flushRef.current());
         return "ready";
       } catch (error) {
         onErrorRef.current(
@@ -92,5 +137,5 @@ export function useDesktopSessionLifecycle({
     [completeDesktopQuitRequest]
   );
 
-  return { completeDesktopQuitRequest };
+  return { completeDesktopQuitRequest, runDesktopQuitPersistence };
 }

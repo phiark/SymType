@@ -5,12 +5,15 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createServerInfo, watchParentPipe, writeServerInfo } from "./desktop-launch.js";
 import { PRODUCT_VERSION } from "./product-version.js";
+import { ServerRuntimeLock } from "./server-runtime-lock.js";
 import { StartupTimeline } from "./startup-timings.js";
 
 if (process.platform !== "win32") process.umask(0o077);
 
 const startupTimeline = new StartupTimeline();
 const config = loadConfig();
+const serverRuntimeLock = ServerRuntimeLock.acquire(config.dataDir);
+process.once("exit", () => serverRuntimeLock.release());
 mkdirSync(dirname(config.logPath), { recursive: true });
 const { app } = await createApp(config, { startupTimeline });
 
@@ -22,6 +25,7 @@ const shutdown = async (signal: string) => {
   stopWatchingParent();
   app.log.info({ signal }, "SymType is saving and shutting down");
   await app.close();
+  serverRuntimeLock.release();
   process.exit(0);
 };
 process.on("SIGINT", () => void shutdown("SIGINT"));

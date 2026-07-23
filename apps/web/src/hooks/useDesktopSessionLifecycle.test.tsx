@@ -23,7 +23,7 @@ function Harness({
   requestExit: () => void;
   onError: (message: string) => void;
 }) {
-  const { completeDesktopQuitRequest } = useDesktopSessionLifecycle({
+  const { completeDesktopQuitRequest, runDesktopQuitPersistence } = useDesktopSessionLifecycle({
     active,
     isCriticalMutationInFlight: () => critical,
     flush,
@@ -33,7 +33,15 @@ function Harness({
   });
   return (
     <div>
-      <button type="button" onClick={() => completeDesktopQuitRequest("ready")}>
+      <button
+        type="button"
+        onClick={() => {
+          void runDesktopQuitPersistence(flush).then(
+            () => completeDesktopQuitRequest("ready"),
+            () => completeDesktopQuitRequest("failed")
+          );
+        }}
+      >
         保存并退出
       </button>
       <button type="button" onClick={() => completeDesktopQuitRequest("cancelled")}>
@@ -50,6 +58,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("desktop session lifecycle bridge", () => {
@@ -97,6 +106,56 @@ describe("desktop session lifecycle bridge", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "继续训练" }));
     await expect(quitResult).resolves.toBe("cancelled");
+  });
+
+  it("does not apply the persistence deadline while the user is deciding", async () => {
+    vi.useFakeTimers();
+    render(
+      <Harness
+        active
+        pause={vi.fn()}
+        flush={vi.fn().mockResolvedValue(undefined)}
+        requestExit={vi.fn()}
+        onError={vi.fn()}
+      />
+    );
+
+    let settled = false;
+    const quitResult = window.symtypeDesktop.requestQuit().finally(() => {
+      settled = true;
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(settled).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "继续训练" }));
+    await expect(quitResult).resolves.toBe("cancelled");
+  });
+
+  it("fails a native quit when confirmed persistence stops responding", async () => {
+    vi.useFakeTimers();
+    const onError = vi.fn();
+    render(
+      <Harness
+        active
+        pause={vi.fn()}
+        flush={() => new Promise<void>(() => undefined)}
+        requestExit={vi.fn()}
+        onError={onError}
+      />
+    );
+
+    const quitResult = window.symtypeDesktop.requestQuit();
+    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    await expect(quitResult).resolves.toBe("failed");
+    expect(onError).toHaveBeenCalledWith(
+      "保存等待超过 10 秒；尚未确认写入的数据仍保留在当前页面。"
+    );
   });
 
   it("reports a failed flush without discarding the page error", async () => {

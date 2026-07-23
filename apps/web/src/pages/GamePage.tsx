@@ -283,7 +283,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
     () => criticalMutationTokensRef.current.size > 0,
     []
   );
-  const { completeDesktopQuitRequest } = useDesktopSessionLifecycle({
+  const { completeDesktopQuitRequest, runDesktopQuitPersistence } = useDesktopSessionLifecycle({
     active: Boolean(sessionId),
     isCriticalMutationInFlight,
     flush,
@@ -657,13 +657,15 @@ export function GamePage({ play = false }: { play?: boolean }) {
     setPaused(true);
     setSaveError("");
     try {
-      const correctionCheckpoint = currentCorrectionCheckpoint();
-      await flush();
-      if (sessionIdRef.current) {
-        await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
-          ...(correctionCheckpoint ? { correctionCheckpoint } : {})
-        });
-      }
+      await runDesktopQuitPersistence(async () => {
+        const correctionCheckpoint = currentCorrectionCheckpoint();
+        await flush();
+        if (sessionIdRef.current) {
+          await api.post(`/api/v1/sessions/${sessionIdRef.current}/abandon`, {
+            ...(correctionCheckpoint ? { correctionCheckpoint } : {})
+          });
+        }
+      });
       sessionIdRef.current = null;
       lessonIdRef.current = null;
       blockIdRef.current = null;
