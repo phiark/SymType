@@ -46,6 +46,29 @@ describe("macOS release staging", () => {
     expect(shouldIncludeRuntimePackagePath("src/index.ts")).toBe(false);
     expect(shouldIncludeRuntimePackagePath("tests/runtime.js")).toBe(false);
     expect(shouldIncludeRuntimePackagePath("node_modules/.cache/state")).toBe(false);
+    expect(
+      shouldIncludeRuntimePackagePath(
+        "node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeRuntimePackagePath(
+        "node_modules/better-sqlite3/build/Release/test_extension.node"
+      )
+    ).toBe(false);
+    expect(
+      shouldIncludeRuntimePackagePath(
+        "node_modules/better-sqlite3/build/Release/obj.target/sqlite3/sqlite3.o"
+      )
+    ).toBe(false);
+    expect(
+      shouldIncludeRuntimePackagePath(
+        "node_modules/better-sqlite3/build/Release/.deps/better_sqlite3.node.d"
+      )
+    ).toBe(false);
+    expect(shouldIncludeRuntimePackagePath("node_modules/better-sqlite3/build/config.gypi")).toBe(
+      false
+    );
   });
 
   it("copies only the installed production dependency closure", async () => {

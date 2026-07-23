@@ -24,6 +24,7 @@ export const APP_RESOURCE_TOP_LEVEL_ALLOWLIST = Object.freeze([
 export const RUNTIME_PACKAGE_EXCLUDED_DIRECTORIES = Object.freeze(
   new Set([
     ".cache",
+    ".deps",
     ".github",
     ".nyc_output",
     "__tests__",
@@ -33,15 +34,20 @@ export const RUNTIME_PACKAGE_EXCLUDED_DIRECTORIES = Object.freeze(
     "docs",
     "example",
     "examples",
+    "obj.target",
     "test",
     "tests"
   ])
 );
 
 export const RUNTIME_PACKAGE_EXCLUDED_SUFFIXES = Object.freeze([
+  ".a",
   ".cts",
+  ".d",
   ".map",
+  ".mk",
   ".mts",
+  ".o",
   ".ts",
   ".tsx"
 ]);

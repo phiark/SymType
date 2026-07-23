@@ -30,6 +30,12 @@ import {
 
 const textDecoder = new TextDecoder();
 const LICENSE_PATTERN = /^(licen[cs]e|notice|copying)(\..*)?$/i;
+const RUNTIME_BUILD_EXCLUDED_FILES = new Set([
+  "config.gypi",
+  "gyp-mac-tool",
+  "makefile",
+  "test_extension.node"
+]);
 
 export function parseCliArguments(argv) {
   const options = {};
@@ -200,6 +206,9 @@ export function shouldIncludeRuntimePackagePath(relativePath) {
     return false;
   }
   const lowerName = components.at(-1).toLowerCase();
+  if (RUNTIME_BUILD_EXCLUDED_FILES.has(lowerName)) {
+    return false;
+  }
   if (RUNTIME_PACKAGE_EXCLUDED_SUFFIXES.some((suffix) => lowerName.endsWith(suffix))) {
     return false;
   }
