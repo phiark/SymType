@@ -1,6 +1,6 @@
 # SymType 2.0 Release Notes
 
-**State:** PR #2 merged; Issue #3 corrections locally validated; release not tagged
+**State:** PR #2 merged; Issue #3 corrections published in PR #4; release not tagged
 **Last update:** 2026-07-23
 
 ## Product
@@ -54,10 +54,11 @@ fast. This is accepted for the local single-user release; no architecture rewrit
 
 See `docs/v2/PERFORMANCE-RESULTS.md` for the complete bounded evidence and honest limits.
 
-## Issue #3 delivery still required before tag
+## PR #4 delivery still required before tag
 
-- Commit and push the issue-scoped branch, open the linked Pull Request, pass its current CI, and
-  obtain one approval from a distinct GitHub reviewer; the author cannot approve the author's PR.
+- Pass PR #4's final-head CI and obtain one approval from a distinct GitHub reviewer; the author
+  cannot approve the author's PR. Resolve every conversation and squash merge only while the branch
+  is current with `main`.
 
 The `main` protection rule is active and requires that approval, the current Node 22 check, an
 up-to-date branch, resolved review conversations, and linear history without administrator bypass.

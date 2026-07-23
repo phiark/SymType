@@ -2,8 +2,8 @@
 
 **Last update:** 2026-07-23
 **Method:** Document-driven release convergence
-**Release state:** PR #2 is merged; Issue #3 corrections passed the local release gates and await the
-normal branch/PR/CI/review workflow
+**Release state:** PR #2 is merged; Issue #3 corrections are published in PR #4 and await its
+final-head CI, independent review, and squash merge
 
 ## Purpose
 
@@ -38,8 +38,8 @@ documentation work does not expand without a confirmed release problem.
 - Release cleanup now cancels typing-surface transient timers on unmount, preventing late React
   updates while leaving keystroke and completion results unchanged.
 - The target GitHub repository has the file-free bootstrap commit `95aa3e5` and merged release
-  candidate commit `a10e9a8` on `main`; PR #2 delivered the Issue #1 branch. Issue #3 is isolated on
-  `fix/3-review-correctness-gaps`.
+  candidate commit `a10e9a8` on `main`; PR #2 delivered the Issue #1 branch. Issue #3 commits
+  `59f4275` and `df9f123` are published from `fix/3-review-correctness-gaps` in PR #4.
 - PR CI run 29903653128 exposed one clean-checkout infrastructure defect: type-aware lint ran
   before internal workspace `dist` entry points existed. V2-D012 records the bounded fix; no
   product logic or lint rule changes.
@@ -62,7 +62,7 @@ documentation work does not expand without a confirmed release problem.
 | --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Blocker | Final Node.js 22 `npm run check`                                               | The current candidate cannot be published with an unverified final tree.                                               |
 | Release Blocker | Core Chromium and WebKit acceptance                                            | Recheck startup, training completion, persistence, analytics, restore, and game after release edits.                   |
-| Release Blocker | GitHub CI and merge authorization                                              | Issue #3 passed local final gates; its PR, current CI, independent approval, and merge remain required.                |
+| Release Blocker | GitHub CI and merge authorization                                              | PR #4 is open; its final-head CI, independent approval, resolved conversations, and merge remain required.             |
 | Required        | 100k product smoke                                                             | Verify Today, training completion, and common Analytics behavior against the populated fixture.                        |
 | Required        | Data-safety release replay                                                     | Recheck event idempotency, migration, export, restore, and database integrity on copies.                               |
 | Required        | Repository workflow files                                                      | Persist contribution, Issue, PR, CI, version, changelog, and release rules using real commands.                        |
@@ -77,16 +77,16 @@ documentation work does not expand without a confirmed release problem.
 
 ## Gate status
 
-| Gate                         | Release exit                                                | Status      | Evidence or disposition                              |
-| ---------------------------- | ----------------------------------------------------------- | ----------- | ---------------------------------------------------- |
-| 0. Protect current state     | Supported install, build, start, health                     | Done        | Node 22 clean install/build/start evidence           |
-| 1. Freeze V1 behavior        | Literal business outputs and contracts pass                 | Done        | 22 golden tests plus full V1 suites                  |
-| 2. Minimal credible baseline | Correct empty/100k, child-process, browser, bundle evidence | Done        | `reports/performance/v1-baseline.json`               |
-| 3. Optimize bottlenecks      | Only act on a proven release problem                        | Cancelled   | No release-level optimization is required            |
-| 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Done        | Final Chromium/WebKit review passed                  |
-| 5. Converge code             | Remove confirmed dead source/dependency only                | Done        | Bounded cleanup and release checks passed            |
-| 6. Conform documents         | Official Issue 9 review                                     | Blocked     | User must provide the official PDF local path        |
-| 7. Accept and publish        | Check, core E2E, data safety, CI, merge authorization       | In progress | Local Issue #3 gates pass; PR/CI/review/merge remain |
+| Gate                         | Release exit                                                | Status      | Evidence or disposition                       |
+| ---------------------------- | ----------------------------------------------------------- | ----------- | --------------------------------------------- |
+| 0. Protect current state     | Supported install, build, start, health                     | Done        | Node 22 clean install/build/start evidence    |
+| 1. Freeze V1 behavior        | Literal business outputs and contracts pass                 | Done        | 22 golden tests plus full V1 suites           |
+| 2. Minimal credible baseline | Correct empty/100k, child-process, browser, bundle evidence | Done        | `reports/performance/v1-baseline.json`        |
+| 3. Optimize bottlenecks      | Only act on a proven release problem                        | Cancelled   | No release-level optimization is required     |
+| 4. Converge interface        | Fix only confirmed visible/accessibility regressions        | Done        | Final Chromium/WebKit review passed           |
+| 5. Converge code             | Remove confirmed dead source/dependency only                | Done        | Bounded cleanup and release checks passed     |
+| 6. Conform documents         | Official Issue 9 review                                     | Blocked     | User must provide the official PDF local path |
+| 7. Accept and publish        | Check, core E2E, data safety, CI, merge authorization       | In progress | PR #4 tracks final CI/review/merge            |
 
 ## Gate 0 and Gate 1 evidence
 
@@ -137,9 +137,8 @@ for a single-user local application. Record it as an Optional future target if r
 
 ## Active release work
 
-1. Commit the bounded Issue #3 corrections atomically, push `fix/3-review-correctness-gaps`, open its
-   linked PR, pass current CI and independent review, resolve every conversation, and squash merge
-   only after the branch is current.
+1. Use linked PR #4 to pass final-head CI and one independent review, resolve every conversation,
+   and squash merge only after `fix/3-review-correctness-gaps` is current with `main`.
 
 ## GitHub bootstrap decision
 
@@ -154,7 +153,7 @@ through PR #2 and was squash-merged as `a10e9a8`; no product file was committed 
 | ------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------ |
 | Initial product import had no older Git baseline        | Literal goldens, raw baseline, PR #2 history, current Issue #3 diff       | Controlled         |
 | Active Homebrew Node resolves to 25                     | Use explicit Node 22.16.0 PATH in release commands                        | Controlled         |
-| `gh` CLI token is invalid                               | Use Git credential, connector, and authenticated Chrome where available   | Controlled         |
+| GitHub operations require live authentication/network   | CLI keyring and connector verified before publishing PR #4                | Resolved           |
 | Branch-rule save requires GitHub sudo mode              | Owner confirmed access; the complete `main` rule is saved                 | Resolved           |
 | Clean CI lacked workspace `dist` type entry points      | Root npm `prepare`; isolated and GitHub checks pass                       | Resolved           |
 | Official STE PDF is absent                              | Do not use unofficial summaries; request only the local official PDF path | Externally blocked |
@@ -165,5 +164,6 @@ through PR #2 and was squash-merged as `a10e9a8`; no product file was committed 
 Gates 0, 1, 2, 4, and 5 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
 blocked. PR #2 delivered the release candidate to `main` as `a10e9a8`. Issue #3 corrects the bounded
 contract drift authorized by V2-D014; its final local Node 22, regression, data-safety, launcher, and
-Chromium/WebKit gates are green. Gate 7 remains open only for the normal Issue #3
-commit/PR/CI/review/merge workflow; no Optional performance or maintenance-platform work is reopened.
+Chromium/WebKit gates are green. Commits `59f4275` and `df9f123` are published in PR #4. Gate 7
+remains open only for that PR's final CI/review/merge workflow; no Optional performance or
+maintenance-platform work is reopened.

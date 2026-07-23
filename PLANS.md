@@ -30,16 +30,16 @@ completed work is server-authoritative.
 
 ## Milestones
 
-| Phase | Deliverable                           | Dependency | Exit verification                     | Status           |
-| ----- | ------------------------------------- | ---------- | ------------------------------------- | ---------------- |
-| 1     | Repo, docs, health, SQLite, launchers | None       | build + health + route refresh        | Done             |
-| 2     | High-risk persisted typing slice      | 1          | events survive restart/browser switch | Done             |
-| 3     | All practice modes and input settings | 2          | mode E2E in both engines              | Done             |
-| 4     | Adaptive engine and baseline          | 2          | deterministic unit/simulation suite   | Done             |
-| 5     | Analytics and data safety             | 2, 4       | empty/small/100k + restore tests      | Done             |
-| 6     | Six-level game                        | 2, 4       | success/reset/hardcore E2E            | Done             |
-| 7     | Visual/accessibility polish           | 3, 5, 6    | Chromium/WebKit screenshots           | Done             |
-| 8     | Release-candidate audit               | All        | Local gates pass; Issue #3 PR pending | Delivery pending |
+| Phase | Deliverable                           | Dependency | Exit verification                     | Status          |
+| ----- | ------------------------------------- | ---------- | ------------------------------------- | --------------- |
+| 1     | Repo, docs, health, SQLite, launchers | None       | build + health + route refresh        | Done            |
+| 2     | High-risk persisted typing slice      | 1          | events survive restart/browser switch | Done            |
+| 3     | All practice modes and input settings | 2          | mode E2E in both engines              | Done            |
+| 4     | Adaptive engine and baseline          | 2          | deterministic unit/simulation suite   | Done            |
+| 5     | Analytics and data safety             | 2, 4       | empty/small/100k + restore tests      | Done            |
+| 6     | Six-level game                        | 2, 4       | success/reset/hardcore E2E            | Done            |
+| 7     | Visual/accessibility polish           | 3, 5, 6    | Chromium/WebKit screenshots           | Done            |
+| 8     | Release-candidate audit               | All        | PR #4 tracks CI, review, and merge    | Delivery active |
 
 ## Progress
 
@@ -146,8 +146,9 @@ completed work is server-authoritative.
       SQLite history from the other supported browser engine; storage clearing alone is insufficient.
 - [x] Run the final Issue #3 local release-candidate gates and reconcile the current requirement
       evidence without promoting unavailable manual or external evidence.
-- [ ] Commit and push the Issue #3 branch, open the linked Pull Request, pass current CI and one
-      independent approval, resolve conversations, and squash merge only after the branch is current.
+- [x] Commit and push the Issue #3 branch, then open linked, ready-for-review PR #4 against `main`.
+- [ ] Pass final-head CI and one independent approval, resolve conversations, and squash merge only
+      after the branch is current.
 
 ## Document-driven execution protocol
 
@@ -236,8 +237,9 @@ intentional skip, the complete 22-test literal regression suite, and all four bu
 production browser gate collected 74 Chromium/WebKit cases and passed 73 with one intentional
 lifecycle-owner skip in 8.0 minutes. The focused seven-file data-safety replay passed 34 tests, the
 isolated launcher smoke passed, and current requirement/document evidence is reconciled. Local
-acceptance is complete; Issue #3 still requires its atomic commit, linked PR, current CI, independent
-approval, resolved conversations, and squash merge before repository delivery is complete.
+acceptance is complete, and commits `59f4275`/`df9f123` are published in linked PR #4. At this
+publication checkpoint, final-head CI, one independent approval, resolved conversations, and squash
+merge remain before repository delivery is complete; PR #4 is the authoritative live record.
 
 The expanded experiment-enabled 100k path now measures approximately 755.5 ms for statistics plus
 dashboard on this Mac. It exercises the live calibration/retention/report calculations and supersedes

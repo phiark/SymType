@@ -52,7 +52,7 @@ an explicit disposition.
 | V2-G7-005  | Record explicit bootstrap merge authorization            | Release Blocker | PR #2, release evidence, and V2-D013                                                | merged as `a10e9a8` under the one-time waiver       | Verified  |
 | V2-GIT-001 | Persist Issue/branch/commit/PR workflow                  | Required        | AGENTS, CONTRIBUTING, templates                                                     | Prettier and YAML parse                             | Verified  |
 | V2-GIT-002 | Run applicable CI on push and PR                         | Release Blocker | workflow plus V2-D012 clean-install preparation                                     | required Node 22 check on both triggers             | Verified  |
-| V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR | Release Blocker | Issue #1, commit `cd66491`, branch, and PR #2                                       | remote SHA and PR metadata verified                 | Verified  |
+| V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR | Release Blocker | Issues #1/#3, numbered branches, commits, and PRs #2/#4                             | remote SHAs and PR metadata verified                | Verified  |
 | V2-GIT-004 | Protect `main` and require review/checks                 | Required        | saved classic rule plus Squash-only and auto-delete                                 | PR, approval, current CI/branch, no bypass          | Verified  |
 
 ## Incorporated V1 function contract

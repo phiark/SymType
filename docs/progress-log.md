@@ -1026,7 +1026,9 @@ focused mode, calibration, game, Today/input/audio, and visual-functional result
 
 ### Delivery state
 
-- Local Issue #3 acceptance and documentation reconciliation are complete. Repository delivery is
-  still pending the required atomic commit, push, linked Pull Request, current CI, one independent
-  approval, resolved conversations, and squash merge. No local gate result is presented as proof that
-  those external workflow steps have already happened.
+- Local Issue #3 acceptance and documentation reconciliation are complete. Atomic commits `59f4275`
+  and `df9f123` were pushed from `fix/3-review-correctness-gaps`, and linked ready-for-review PR #4
+  was opened against `main`. At this publication checkpoint, repository delivery still requires
+  final-head CI, one independent approval, resolved conversations, and squash merge. PR #4 is the
+  authoritative live workflow record; no local gate result is presented as proof of those external
+  outcomes.

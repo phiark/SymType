@@ -109,6 +109,7 @@ Gate 1 is complete. Gate 2 is active.
 - The final production replay collected 74 Chromium/WebKit cases and passed 73 with one intentional
   duplicated lifecycle-owner skip in 8.0 minutes. The isolated launcher and deterministic 100k
   Today/course/Analytics smoke also passed.
-- The local Gate 7 evidence is complete. Publication remains active only for the normal Issue #3
-  commit, PR, current CI, independent approval, resolved conversations, and squash merge; Gate 6
-  remains the separate external documentation blocker.
+- The local Gate 7 evidence is complete. Commits `59f4275` and `df9f123` were pushed from
+  `fix/3-review-correctness-gaps`, and linked ready-for-review PR #4 now records the live external
+  workflow. At this publication checkpoint its final-head CI, independent approval, resolved
+  conversations, and squash merge remain; Gate 6 is the separate external documentation blocker.
