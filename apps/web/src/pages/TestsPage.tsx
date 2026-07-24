@@ -27,12 +27,7 @@ export function TestsPage() {
   });
   if (query.isLoading) return <LoadingState />;
   if (query.isError || !query.data)
-    return (
-      <ErrorState
-        message={query.error instanceof Error ? query.error.message : "无法读取测试记录。"}
-        onRetry={() => void query.refetch()}
-      />
-    );
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   const tests = query.data.tests;
   const rankedTests = [...tests].sort(
     (first, second) =>

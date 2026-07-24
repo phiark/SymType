@@ -261,7 +261,7 @@ test("visual designed disconnected state is actionable", async ({ page }, testIn
   await page.goto("/");
 
   const error = page.getByRole("alert");
-  await expect(error.getByRole("heading", { name: "本地服务暂时没有回应" })).toBeVisible({
+  await expect(error.getByRole("heading", { name: "SymType 暂时没有回应" })).toBeVisible({
     timeout: 15_000
   });
   await expect(error.getByRole("button", { name: /重试/u })).toBeEnabled();

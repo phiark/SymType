@@ -23,6 +23,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 
 import { api } from "../api";
 import { PageHeader, SegmentedControl } from "../components/ui";
+import { userErrorText } from "../error-presentation";
 import { activeKeyboardLayout, focusCharactersForScopes } from "../keyboard";
 import type { BootstrapData, CustomTextRecord, TraditionalProgress } from "../types";
 
@@ -447,7 +448,7 @@ export function TrainPage() {
       await queryClient.invalidateQueries({ queryKey: ["custom-texts"] });
       void navigate(customSessionUrl(response.text));
     } catch (error) {
-      setCustomError(error instanceof Error ? error.message : "无法保存本地文本。");
+      setCustomError(userErrorText(error, "save"));
     } finally {
       setCustomSaving(false);
     }
@@ -537,7 +538,7 @@ export function TrainPage() {
             </div>
           ) : traditionalQuery.isLoading ? (
             <p className="progress-read-note" role="status">
-              正在从本机 SQLite 读取解锁进度…
+              正在读取本机解锁进度…
             </p>
           ) : null}
           <ol className="traditional-ladder" aria-label="传统课程阶梯">
@@ -705,7 +706,7 @@ export function TrainPage() {
           <div className="saved-texts" aria-label="已保存的自定义文本">
             <div className="saved-texts__heading">
               <strong>已保存文本</strong>
-              <span>进度来自服务端 SQLite</span>
+              <span>进度已保存在本机</span>
             </div>
             {customTextsQuery.isLoading ? (
               <p className="progress-read-note" role="status">
@@ -713,11 +714,7 @@ export function TrainPage() {
               </p>
             ) : customTextsQuery.isError ? (
               <div className="progress-read-error" role="alert">
-                <p>
-                  {customTextsQuery.error instanceof Error
-                    ? customTextsQuery.error.message
-                    : "无法读取本地文本。"}
-                </p>
+                <p>{userErrorText(customTextsQuery.error, "load")}</p>
                 <button
                   type="button"
                   className="text-button"

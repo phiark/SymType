@@ -569,6 +569,7 @@ export function generateMicroBlock(options: MicroBlockOptions): GeneratedMicroBl
   const ids: string[] = [];
   let scoreTotal = 0;
   let cursor = 0;
+  let lastSelectedText = "";
   // The hard cap guarantees malformed candidate sets cannot cause a loop.
   for (let step = 0; step < 128 && text.length < targetLength; step += 1) {
     const item = ordered[cursor % ordered.length];
@@ -578,14 +579,23 @@ export function generateMicroBlock(options: MicroBlockOptions): GeneratedMicroBl
     }
     const separator = text.length === 0 ? "" : " ";
     const remaining = targetLength - text.length;
-    const addition = `${separator}${item.candidate.text.trim()}`;
+    const selectedText = item.candidate.text.trim();
+    const addition = `${separator}${selectedText}`;
     text += addition.slice(0, remaining);
+    lastSelectedText = selectedText;
     ids.push(item.candidate.id);
     scoreTotal += item.scoring.score;
   }
   if (text.length < minimumLength) {
     const fill = fallbackText(random, targetLength - text.length + 1);
     text = `${text} ${fill}`.slice(0, targetLength).trimEnd();
+  }
+  text = text.trimEnd();
+  if (text.length < minimumLength) {
+    const needed = minimumLength - text.length;
+    const fillSource = lastSelectedText || ordered[0]!.candidate.text.trim();
+    const repetitions = Math.ceil(needed / fillSource.length);
+    text += fillSource.repeat(repetitions).slice(0, needed);
   }
   const explanation =
     options.phase === "blocked"

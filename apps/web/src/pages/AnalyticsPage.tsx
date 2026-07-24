@@ -355,12 +355,7 @@ export function AnalyticsPage() {
     featureTypeOptions.find((option) => option.value === featureType)?.label ?? featureType;
   if (query.isLoading) return <LoadingState label="正在汇总本机训练事件…" />;
   if (query.isError || !query.data)
-    return (
-      <ErrorState
-        message={query.error instanceof Error ? query.error.message : "无法读取分析数据。"}
-        onRetry={() => void query.refetch()}
-      />
-    );
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   const data = query.data;
   const shiftSummary = data.shiftSummary ?? {
     left: 0,
@@ -414,7 +409,7 @@ export function AnalyticsPage() {
       <PageHeader
         eyebrow="个人分析"
         title="把数据变成下一次行动"
-        description="所有聚合来自本机 SQLite；训练、测试和游戏保留各自标签。"
+        description="所有结果都来自保存在本机的训练记录；训练、测试和游戏保留各自标签。"
         action={
           <SegmentedControl
             label="时间范围"
@@ -482,7 +477,7 @@ export function AnalyticsPage() {
         {!data.experiment ? (
           <EmptyState
             title="尚无实验摘要"
-            description="当前服务器没有返回策略实验数据；这里不会补入推测值。"
+            description="当前没有可显示的策略实验数据；这里不会补入推测值。"
           />
         ) : !data.experiment.enabled ? (
           <div className="experiment-disabled">
@@ -791,7 +786,7 @@ export function AnalyticsPage() {
             description={
               errorAnalysis.eventCount
                 ? "继续积累样本；不会把一次波动包装成确定结论。"
-                : "完成课程后，这里会从 SQLite 事件流生成可行动摘要。"
+                : "完成课程后，这里会根据本机训练记录生成可行动摘要。"
             }
           />
         )}

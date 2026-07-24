@@ -122,7 +122,9 @@ describe("GamePage persisted progress", () => {
     renderGame();
     fireEvent.click(await screen.findByRole("button", { name: /启动新任务/u }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("database busy");
+    expect(await screen.findByRole("alert")).toHaveTextContent("暂时无法开始");
+    expect(screen.getByRole("alert")).toHaveTextContent("已有数据未受影响");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("database busy");
     await waitFor(() => expect(screen.getByRole("button", { name: /启动新任务/u })).toBeEnabled());
   });
 
@@ -147,12 +149,12 @@ describe("GamePage persisted progress", () => {
 
     renderGame();
 
-    const resume = await screen.findByRole("button", { name: /继续当前 run/u });
+    const resume = await screen.findByRole("button", { name: /继续当前任务/u });
     expect(resume).toBeVisible();
     const fourthLevel = within(screen.getByRole("region", { name: "六关解锁状态" })).getAllByRole(
       "article"
     )[3];
-    expect(fourthLevel).toHaveTextContent("当前 run 正在此关");
+    expect(fourthLevel).toHaveTextContent("当前任务正在此关");
   });
 });
 
@@ -171,10 +173,10 @@ describe("GamePage active-session exit safety", () => {
     );
 
     expect(screen.getByRole("dialog", { name: "退出当前关卡？" })).toHaveTextContent(
-      "先写入 SQLite"
+      "先安全保存在本机"
     );
     expect(screen.getByRole("dialog", { name: "退出当前关卡？" })).toHaveTextContent(
-      "标记为已放弃"
+      "随后结束本关"
     );
     fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);

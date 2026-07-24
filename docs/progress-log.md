@@ -1032,3 +1032,29 @@ focused mode, calibration, game, Today/input/audio, and visual-functional result
   final-head CI, one independent approval, resolved conversations, and squash merge. PR #4 is the
   authoritative live workflow record; no local gate result is presented as proof of those external
   outcomes.
+
+## 2026-07-24: Focused training correction branch
+
+### Confirmed scope
+
+- Issues #8, #10, #11, #13, #14, and #15 are isolated on
+  `fix/14-typing-session-ui-batch` from merged `main` commit `481a2cb`.
+- The batch distinguishes current/untouched/correct/incorrect/corrected glyphs, renders the existing
+  54-key mapping with shared ANSI geometry and stronger non-color cues, adds a contained pause exit
+  that delegates to the existing guard, removes automatic terminal whitespace, redacts routine
+  implementation errors, and removes redundant focused-session labels.
+- Imported/custom text, event semantics, metrics, routes, mappings, settings, and persistence
+  ownership remain unchanged. V2-D015 authorizes only the generated-text literal correction.
+
+### Verification
+
+- Supported Node.js 22.16.0 `npm run check` passed zero-warning lint, strict root/workspace type
+  checks, 63 Vitest files with 480 tests passed and one intentional runtime-conditional skip, 22/22
+  literal regression tests, and all production builds.
+- Three maintainer-supplied Keybr screenshots were reviewed as interaction references for ANSI
+  silhouette, high-luminance finger zones, home/target cues, and current-position treatment. The
+  remaining five keep the complete `KEY-010` comparison externally blocked.
+- Chrome is the requested manual-review browser. The active Chrome profile currently lacks the
+  ChatGPT Chrome Extension, so Chrome screenshots, combined visual comparison, 1024/200% reflow, and
+  the affected browser flows remain blocked in `design-qa.md`. Safari evidence is not used as a
+  substitute, and no replacement visual baseline is claimed.

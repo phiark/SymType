@@ -97,6 +97,7 @@ describe("runtime adaptive sequence semantics", () => {
     expect(first.adaptiveDebug.selectedFeatureValues).toContain("ct");
     expect(first.adaptiveDebug.candidateIds).toContain("smart:focus:bigram%3Act");
     expect(first.block.target_text).toContain("ct");
+    expect(first.block.target_text).not.toMatch(/\s$/u);
     expect(first.block.rationale).toContain("ct");
 
     const replayResponse = await context.app.inject(request);

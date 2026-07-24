@@ -47,10 +47,6 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
             <span className="wordmark__symbol">S</span>
             <span>SymType</span>
           </div>
-          <div className="local-badge">
-            <span />
-            本机 SQLite
-          </div>
         </header>
         <main id="main-content" ref={mainRef} tabIndex={-1}>
           <Outlet context={{ bootstrap }} />
@@ -95,7 +91,7 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
         <div className="sidebar__footer">
           <div className="local-badge">
             <span />
-            本机 SQLite
+            仅存本机
           </div>
           <p>数据保存在这台电脑</p>
         </div>
