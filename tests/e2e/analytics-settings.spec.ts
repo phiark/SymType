@@ -51,7 +51,7 @@ test("analytics, mapping, backup, theme, and custom text controls are live", asy
   await expect(page.getByRole("button", { name: /关闭通知：自定义映射内容已保存/u })).toBeVisible();
   await page.getByRole("button", { name: "保存更改", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: /关闭通知：设置与目标已在一个 SQLite 事务中保存/u })
+    page.getByRole("button", { name: /关闭通知：设置与目标已安全保存在本机/u })
   ).toBeVisible();
   const savedBootstrap = (await (await request.get("/api/v1/bootstrap")).json()) as {
     settings: { activeLayoutId: string };
@@ -71,7 +71,7 @@ test("analytics, mapping, backup, theme, and custom text controls are live", asy
   await page.getByRole("button", { name: /数据与备份/ }).click();
   await page.getByRole("button", { name: /创建 SQLite 快照/ }).click();
   await expect(
-    page.getByRole("button", { name: /关闭通知：已创建并轮转本机 SQLite 备份/u })
+    page.getByRole("button", { name: /关闭通知：已创建本机备份，并按保留规则整理旧备份/u })
   ).toBeVisible();
   const sqliteDownload = page.waitForEvent("download");
   await page.getByText("下载 SQLite 备份", { exact: true }).click();
@@ -213,7 +213,7 @@ test("typing appearance and motion settings remain server-backed and drive the l
   if ((await smoothScroll.getAttribute("aria-checked")) !== "false") await smoothScroll.click();
   await page.getByRole("button", { name: "保存更改", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: /关闭通知：设置与目标已在一个 SQLite 事务中保存/u })
+    page.getByRole("button", { name: /关闭通知：设置与目标已安全保存在本机/u })
   ).toBeVisible();
 
   await page.evaluate(() => {
@@ -393,7 +393,7 @@ test("data controls export real files and restore a validated JSON backup with a
     buffer: jsonBytes
   });
   await expect(page.getByText("恢复摘要", { exact: true })).toBeVisible();
-  await expect(page.getByText(/个 profile.*次 session.*个事件/u)).toBeVisible();
+  await expect(page.getByText(/个用户档案.*次训练.*个按键记录/u)).toBeVisible();
 
   await mutate(request, "patch", "/api/v1/settings", { theme: "dark" });
   expect((await bootstrap(request)).settings).toMatchObject({ theme: "dark" });

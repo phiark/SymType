@@ -1,6 +1,6 @@
 # SymType 2.0 Requirements Matrix
 
-**Last update:** 2026-07-23
+**Last update:** 2026-07-24
 **Status values:** Verified, Blocked, Optional, Cancelled
 
 `Class` records release priority. `Status` records the current outcome. Every requirement row has
@@ -33,9 +33,10 @@ an explicit disposition.
 | V2-G3-003  | Rewrite architecture to satisfy old theoretical budgets  | Cancelled       | no release-level bottleneck found                                                   | not applicable                                      | Cancelled |
 | V2-G4-001  | Reuse evidence when no visual redesign occurs            | Required        | 30-image V1 matrix and rubric                                                       | final two-engine visual path passed                 | Verified  |
 | V2-G4-002  | Perform a V2 visual redesign                             | Cancelled       | no confirmed visual-design defect                                                   | not applicable                                      | Cancelled |
-| V2-G4-003  | Pass critical 1024/desktop Chromium/WebKit views         | Release Blocker | final complete Playwright replay                                                    | visual matrix and runtime-boundary pass             | Verified  |
-| V2-G4-004  | Preserve keyboard/focus/axe behavior                     | Release Blocker | transient timers are owned by the typing surface                                    | unmount regression and both engines pass            | Verified  |
+| V2-G4-003  | Pass critical 1024/desktop Chromium/WebKit views         | Release Blocker | pre-batch Playwright replay passed; current keyboard/focused UI changed             | current visual baselines and reflow are unreviewed  | Blocked   |
+| V2-G4-004  | Preserve keyboard/focus/axe behavior                     | Release Blocker | component focus/geometry/accessibility assertions pass on the current branch        | current Chrome visual/axe review is pending         | Blocked   |
 | V2-G4-005  | Record a physical Safari manual run                      | Optional        | WebKit remains automated release evidence                                           | manual environment only                             | Optional  |
+| V2-G4-006  | Correct the five confirmed focused-session UI defects    | Release Blocker | Issues #8/#10/#11/#14/#15 implementation and component evidence                     | Chrome visual/interaction review still required     | Blocked   |
 | V2-G5-001  | Enforce all historic file-size limits                    | Cancelled       | legacy debt inventory                                                               | no release value shown                              | Cancelled |
 | V2-G5-002  | Enforce all complexity and parameter limits              | Cancelled       | legacy debt inventory                                                               | no release value shown                              | Cancelled |
 | V2-G5-003  | Preserve the cycle-free workspace graph                  | Required        | architecture audit                                                                  | no module/workspace cycles                          | Verified  |
@@ -50,6 +51,8 @@ an explicit disposition.
 | V2-G7-003  | Accept minimal performance evidence                      | Required        | Gate 2 baseline and 100k product smoke                                              | no release-level blocker                            | Verified  |
 | V2-G7-004  | Pass clean one-click start                               | Release Blocker | offline isolated install/start/rebuild smoke                                        | port fallback, health, reuse, modes, shutdown       | Verified  |
 | V2-G7-005  | Record explicit bootstrap merge authorization            | Release Blocker | PR #2, release evidence, and V2-D013                                                | merged as `a10e9a8` under the one-time waiver       | Verified  |
+| V2-G7-006  | Pass the six-issue final non-browser gate                | Release Blocker | 63 Vitest files, 480 pass, 1 skip; 22/22 literal regressions; all builds pass       | Node.js 22.16.0 `npm run check`                     | Verified  |
+| V2-G7-007  | Verify the affected flows in maintainer-selected Chrome  | Release Blocker | `design-qa.md` records the current evidence boundary                                | Chrome extension unavailable in the active profile  | Blocked   |
 | V2-GIT-001 | Persist Issue/branch/commit/PR workflow                  | Required        | AGENTS, CONTRIBUTING, templates                                                     | Prettier and YAML parse                             | Verified  |
 | V2-GIT-002 | Run applicable CI on push and PR                         | Release Blocker | workflow plus V2-D012 clean-install preparation                                     | required Node 22 check on both triggers             | Verified  |
 | V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR | Release Blocker | Issues #1/#3, numbered branches, commits, and PRs #2/#4                             | remote SHAs and PR metadata verified                | Verified  |

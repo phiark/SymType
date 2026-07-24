@@ -49,14 +49,7 @@ export function App() {
   if (bootstrapQuery.isLoading) return <LoadingState label="正在打开你的本机训练档案…" />;
   if (bootstrapQuery.isError || !bootstrapQuery.data) {
     return (
-      <ErrorState
-        message={
-          bootstrapQuery.error instanceof Error
-            ? bootstrapQuery.error.message
-            : "无法读取启动数据。"
-        }
-        onRetry={() => void bootstrapQuery.refetch()}
-      />
+      <ErrorState error={bootstrapQuery.error} onRetry={() => void bootstrapQuery.refetch()} />
     );
   }
 

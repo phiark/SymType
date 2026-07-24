@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../api";
+import { userErrorText } from "../error-presentation";
 import type { StoredEvent } from "../types";
 
 interface Context {
@@ -99,7 +100,9 @@ export function usePersistentEvents(
           }
         } catch (error) {
           refreshCount(true);
-          onError(error instanceof Error ? error.message : "逐键记录暂未写入，正在保留并重试。");
+          onError(
+            `${userErrorText(error, "save")} 尚未保存的按键仍保留在当前页面；重试会复用同一批次。`
+          );
           throw error;
         } finally {
           flushPromiseRef.current = null;
@@ -129,7 +132,7 @@ export function usePersistentEvents(
         queueRef.current.length +
         pendingRef.current.reduce((sum, batch) => sum + batch.events.length, 0);
       if (buffered >= MAX_BUFFERED_EVENTS) {
-        onError("本机服务器暂时不可用，已暂停输入以保护尚未写入的 500 个事件。请重试保存后继续。");
+        onError("本机保存暂时不可用，已暂停输入以保护尚未保存的 500 个按键。请重试后继续。");
         refreshCount(true);
         return null;
       }

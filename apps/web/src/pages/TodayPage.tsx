@@ -72,12 +72,7 @@ export function TodayPage() {
   );
   if (query.isLoading) return <LoadingState />;
   if (query.isError || !query.data)
-    return (
-      <ErrorState
-        message={query.error instanceof Error ? query.error.message : "无法读取今日训练。"}
-        onRetry={() => void query.refetch()}
-      />
-    );
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   const data = query.data;
   const practicedMinutesExact = data.today.active_ms / 60_000;
   const practicedMinutes = Math.floor(practicedMinutesExact);

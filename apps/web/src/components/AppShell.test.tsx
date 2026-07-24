@@ -64,5 +64,6 @@ describe("AppShell keyboard navigation", () => {
 
     expect(screen.getByLabelText("SymType 专注模式")).toBeVisible();
     expect(screen.queryByRole("link", { name: /SymType/u })).not.toBeInTheDocument();
+    expect(screen.queryByText(/SQLite/u)).not.toBeInTheDocument();
   });
 });

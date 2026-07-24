@@ -1561,18 +1561,21 @@ p {
   gap: 22px;
   min-height: 45px;
 }
-.practice-context-bar > div:first-child {
+.practice-context-bar.is-compact {
+  grid-template-columns: 1fr auto;
+}
+.practice-context-meta {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
-.practice-context-bar > div:first-child span {
+.practice-context-meta span {
   color: var(--accent);
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
 }
-.practice-context-bar > div:first-child strong {
+.practice-context-meta strong {
   font-size: 12px;
 }
 .context-progress {
@@ -1597,34 +1600,6 @@ p {
 }
 .save-state[data-error="true"] {
   color: var(--danger);
-}
-.block-rationale {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 45px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-.block-rationale > span {
-  padding: 4px 7px;
-  border-radius: 5px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 9px;
-  font-weight: 700;
-}
-.block-rationale p {
-  flex: 1;
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 10px;
-}
-.block-rationale small {
-  color: var(--text-faint);
-  font-size: 9px;
 }
 .typing-workspace {
   margin-top: 14px;
@@ -1687,6 +1662,10 @@ p {
 .typing-glyph.is-correct {
   color: var(--text);
 }
+.typing-glyph.is-corrected {
+  text-decoration: underline dotted currentColor 1px;
+  text-underline-offset: 5px;
+}
 .typing-glyph.is-wrong {
   color: var(--danger);
   text-decoration: underline wavy var(--danger) 1px;
@@ -1717,8 +1696,9 @@ p {
   animation: caretBlink 1s steps(1) infinite;
 }
 .typing-surface[data-caret="block"] .typing-glyph.is-current {
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 .typing-surface[data-caret="underline"] .typing-glyph.is-current {
   border-bottom: 3px solid var(--accent);
@@ -1738,11 +1718,38 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
   color: var(--text);
-  font-weight: 670;
-  cursor: pointer;
+  backdrop-filter: blur(3px);
+}
+.pause-overlay__content {
+  width: min(360px, calc(100% - 32px));
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+.pause-overlay__content > strong {
+  font-size: 18px;
+}
+.pause-overlay__content > span {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.pause-overlay__actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.pause-overlay__actions .button {
+  min-width: 112px;
+  min-height: 44px;
 }
 @keyframes caretBlink {
   50% {
@@ -1757,59 +1764,91 @@ p {
 .virtual-keyboard {
   width: min(900px, 100%);
   margin: 20px auto 0;
+  --keyboard-key-gap: clamp(1px, 0.3vw, 3px);
 }
 .keyboard-row {
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-  margin-bottom: 5px;
+  display: grid;
+  grid-template-columns: repeat(120, minmax(0, 1fr));
 }
 .keyboard-key {
-  min-width: 28px;
-  max-width: 88px;
-  height: 42px;
+  --keyboard-key-fill: var(--surface);
+  --keyboard-key-line: var(--line-strong);
+  --keyboard-key-text: var(--text-soft);
+  position: relative;
+  grid-row: 1;
+  min-width: 0;
+  height: clamp(32px, 4.6vw, 44px);
   display: grid;
   place-items: center;
-  padding: 3px;
-  border: 1px solid var(--line-strong);
+  margin: var(--keyboard-key-gap);
+  padding: clamp(1px, 0.3vw, 3px);
+  overflow: hidden;
+  border: 1px solid var(--keyboard-key-line);
   border-bottom-width: 2px;
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text-soft);
+  border-radius: clamp(4px, 0.7vw, 7px);
+  background: var(--keyboard-key-fill);
+  color: var(--keyboard-key-text);
   font-family: ui-monospace, Menlo, monospace;
-  font-size: 11px;
+  font-size: clamp(7px, 1.1vw, 11px);
   box-shadow: 0 2px 3px rgb(20 22 18 / 4%);
   transition: 80ms linear;
 }
 .keyboard-key small {
   color: inherit;
   font-family: inherit;
-  font-size: 6px;
+  font-size: clamp(5px, 0.65vw, 7px);
   white-space: nowrap;
 }
 .keyboard-key[data-finger="leftPinky"],
 .keyboard-key[data-finger="rightPinky"] {
-  border-top-color: #bd7a72;
+  --keyboard-key-fill: color-mix(in srgb, #f3c5cf 86%, var(--surface));
+  --keyboard-key-line: #9a4f64;
+  --keyboard-key-text: #252521;
 }
 .keyboard-key[data-finger="leftRing"],
 .keyboard-key[data-finger="rightRing"] {
-  border-top-color: #b99855;
+  --keyboard-key-fill: color-mix(in srgb, #f2d687 86%, var(--surface));
+  --keyboard-key-line: #806018;
+  --keyboard-key-text: #252521;
 }
 .keyboard-key[data-finger="leftMiddle"],
 .keyboard-key[data-finger="rightMiddle"] {
-  border-top-color: #6b9d8f;
+  --keyboard-key-fill: color-mix(in srgb, #bee1d4 86%, var(--surface));
+  --keyboard-key-line: #397968;
+  --keyboard-key-text: #252521;
 }
 .keyboard-key[data-finger="leftIndex"],
 .keyboard-key[data-finger="rightIndex"] {
-  border-top-color: #668bb0;
+  --keyboard-key-fill: color-mix(in srgb, #bdd7f0 86%, var(--surface));
+  --keyboard-key-line: #406f9c;
+  --keyboard-key-text: #252521;
 }
 .keyboard-key[data-finger="thumb"] {
-  border-top-color: #8c79a7;
+  --keyboard-key-fill: color-mix(in srgb, #d8c8ed 86%, var(--surface));
+  --keyboard-key-line: #72588f;
+  --keyboard-key-text: #252521;
+}
+.keyboard-key[data-zone-start="true"] {
+  border-inline-start-width: 3px;
+}
+.keyboard-key[data-home-key="true"]::after {
+  position: absolute;
+  bottom: clamp(3px, 0.45vw, 5px);
+  left: 50%;
+  width: clamp(7px, 30%, 15px);
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  opacity: 0.64;
+  transform: translateX(-50%);
 }
 .keyboard-key.is-next {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-contrast);
+  --keyboard-key-fill: var(--accent);
+  --keyboard-key-line: var(--accent);
+  --keyboard-key-text: var(--accent-contrast);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
   transform: translateY(-2px);
   box-shadow: 0 5px 12px color-mix(in srgb, var(--accent) 22%, transparent);
 }
@@ -3643,15 +3682,8 @@ td strong {
     grid-column: 1 / -1;
     grid-row: 2;
   }
-  .block-rationale small {
-    display: none;
-  }
   .virtual-keyboard {
-    overflow-x: auto;
     padding-bottom: 8px;
-  }
-  .keyboard-row {
-    min-width: 720px;
   }
 }
 

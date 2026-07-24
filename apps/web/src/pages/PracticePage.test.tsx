@@ -93,7 +93,8 @@ describe("PracticePage completed-block retry", () => {
     const surface = await typeFirstBlock();
 
     const retry = await screen.findByRole("button", { name: /重试保存并继续/u });
-    expect(retry).toHaveTextContent("下一微组暂时不可用");
+    expect(retry).toHaveTextContent("当前微组仍保留在本页");
+    expect(retry).not.toHaveTextContent("下一微组暂时不可用");
     expect(within(surface).getByText("a")).toBeVisible();
     expect(within(surface).queryByText("b")).not.toBeInTheDocument();
     expect(eventBatchCalls(post)).toHaveLength(1);
@@ -134,7 +135,8 @@ describe("PracticePage completed-block retry", () => {
     const surface = await typeFirstBlock();
 
     const retry = await screen.findByRole("button", { name: /重试保存并继续/u });
-    expect(retry).toHaveTextContent("阅读进度暂时不可写入");
+    expect(retry).toHaveTextContent("当前微组仍保留在本页");
+    expect(retry).not.toHaveTextContent("阅读进度暂时不可写入");
     expect(within(surface).getByText("a")).toBeVisible();
     expect(eventBatchCalls(post)).toHaveLength(1);
     expect(patch).toHaveBeenCalledTimes(1);
@@ -148,6 +150,57 @@ describe("PracticePage completed-block retry", () => {
     expect(post.mock.calls.filter(([path]) => String(path).includes("/blocks/next"))).toHaveLength(
       2
     );
+  });
+});
+
+describe("PracticePage focused active state", () => {
+  it("keeps active chrome quiet and opens the existing guarded exit from pause", async () => {
+    const postImplementation: typeof api.post = <T,>(path: string) => {
+      if (path === "/api/v1/sessions") return Promise.resolve(session as T);
+      if (path.includes("/blocks/next")) return Promise.resolve(block(0, "ab") as T);
+      if (path.endsWith("/pause") || path.endsWith("/abandon")) {
+        return Promise.resolve({ ok: true } as T);
+      }
+      return Promise.reject(new Error(`unexpected POST ${path}`));
+    };
+    const post = vi.spyOn(api, "post").mockImplementation(postImplementation);
+
+    renderPractice("/train/session?mode=smart&duration=5&seed=29");
+    fireEvent.click(screen.getByRole("button", { name: /^开始/u }));
+    await screen.findByRole("textbox", { name: "打字练习输入区" });
+
+    expect(screen.queryByText("first block")).not.toBeInTheDocument();
+    expect(screen.queryByText(/微组\s+1\s*\/\s*5/u)).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "课程字符进度" })).toBeVisible();
+    expect(screen.getByText("已保存")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "暂停" }));
+    const pausedDialog = screen.getByRole("dialog", { name: "训练已暂停" });
+    fireEvent.click(within(pausedDialog).getByRole("button", { name: "退出" }));
+
+    expect(await screen.findByRole("dialog", { name: "结束这次训练？" })).toBeVisible();
+    expect(post.mock.calls.some(([path]) => String(path).endsWith("/abandon"))).toBe(false);
+  });
+
+  it("keeps the calibration category visible after removing ordinary block rationale", async () => {
+    const calibrationBlock = block(0, "ab");
+    calibrationBlock.block.block_type = "calibration-letters";
+    calibrationBlock.block.rationale = "校准取样：letters；当前可见文本保持稳定。";
+    const postImplementation: typeof api.post = <T,>(path: string) => {
+      if (path === "/api/v1/sessions") return Promise.resolve(session as T);
+      if (path.includes("/blocks/next")) return Promise.resolve(calibrationBlock as T);
+      return Promise.reject(new Error(`unexpected POST ${path}`));
+    };
+    vi.spyOn(api, "post").mockImplementation(postImplementation);
+
+    renderPractice(
+      "/train/session?mode=calibration&duration=4&calibrationCategories=letters&seed=31"
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^开始/u }));
+    await screen.findByRole("textbox", { name: "打字练习输入区" });
+
+    expect(screen.getByText("基线 · 字母")).toBeVisible();
+    expect(screen.queryByText(calibrationBlock.block.rationale)).not.toBeInTheDocument();
   });
 });
 

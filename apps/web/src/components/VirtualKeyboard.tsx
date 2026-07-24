@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type CSSProperties } from "react";
 import { KEYBOARD_ROWS, SYMMETRIC_LAYOUT, type KeyDefinition } from "@symtype/shared";
 
 interface VirtualKeyboardProps {
@@ -36,6 +36,16 @@ function keyLabel(key: KeyDefinition): string {
   return key.unshifted || key.code.replace(/^(Key|Digit)/u, "");
 }
 
+const ANSI_GRID_SUBDIVISIONS = 8;
+const ANSI_LEFT_EDGE = -0.5;
+
+function keyGridPosition(key: KeyDefinition): CSSProperties {
+  const leftEdge = key.column - key.width / 2;
+  const start = Math.round((leftEdge - ANSI_LEFT_EDGE) * ANSI_GRID_SUBDIVISIONS) + 1;
+  const span = Math.round(key.width * ANSI_GRID_SUBDIVISIONS);
+  return { gridColumn: `${start} / span ${span}` };
+}
+
 export const VirtualKeyboard = memo(function VirtualKeyboard({
   layout = SYMMETRIC_LAYOUT,
   nextCode,
@@ -53,20 +63,30 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
         const row = layout.filter((key) => key.row === rowName);
         if (row.length === 0) return null;
         return (
-          <div className="keyboard-row" key={rowName}>
-            {row.map((key) => {
+          <div className="keyboard-row" data-row={rowName} key={rowName}>
+            {row.map((key, index) => {
               const finger = normalizeFinger(key.finger);
               const fingerLabel = fingerLabels[finger] ?? key.finger;
               const isNext = key.code === nextCode || key.code === nextShiftCode;
               const isPressed = key.code === pressedCode;
+              const previousFinger =
+                index === 0 ? undefined : normalizeFinger(row[index - 1]!.finger);
+              const startsZone = previousFinger !== undefined && previousFinger !== finger;
+              const isHomeKey = key.code === "KeyF" || key.code === "KeyJ";
               return (
                 <div
                   className={`keyboard-key${isNext ? " is-next" : ""}${isPressed ? " is-pressed" : ""}`}
+                  data-code={key.code}
+                  data-column={key.column}
                   data-finger={showFingerColors ? finger : "neutral"}
+                  data-hand={key.hand}
+                  data-home-key={isHomeKey ? "true" : undefined}
+                  data-zone-start={startsZone ? "true" : undefined}
+                  data-width={key.width}
                   key={key.code}
-                  style={{ flexGrow: key.width, flexBasis: `${key.width * 34}px` }}
+                  style={keyGridPosition(key)}
                   aria-current={isNext ? "true" : undefined}
-                  title={`${keyLabel(key)} · ${fingerLabel}`}
+                  title={`${keyLabel(key)} · ${fingerLabel}${isHomeKey ? " · 定位键" : ""}`}
                 >
                   <span>{keyLabel(key)}</span>
                   {isNext ? (
@@ -81,7 +101,7 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
         );
       })}
       <p className="keyboard-caption">
-        颜色与文字共同表示按当前映射推断的建议手指；应用不检测真实手指动作。
+        同类手指使用同色，分区边界与文字共同表示建议指法；应用不检测真实手指动作。
       </p>
     </div>
   );

@@ -332,7 +332,7 @@ test.describe.serial("practice modes and input boundaries", () => {
     await page.getByLabel("主观难度").selectOption("4");
     await page.getByLabel("疲劳感").selectOption("3");
     await page.getByRole("button", { name: "保存感受" }).click();
-    await expect(page.getByText(/已写入本机 SQLite，可用于两周交叉策略报告/u)).toBeVisible();
+    await expect(page.getByText(/已安全保存，可用于两周交叉策略报告/u)).toBeVisible();
     await page.getByRole("button", { name: /^完成/ }).click();
     await expect(page).toHaveURL(/\/test$/u);
     await expect(page.getByRole("heading", { name: "只和自己的历史比较" })).toBeVisible();

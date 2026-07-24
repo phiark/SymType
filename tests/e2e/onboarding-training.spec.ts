@@ -70,7 +70,7 @@ test.describe.serial("local-first onboarding and persisted training", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /为 Symmetric 指法建立/ })).toBeVisible();
-    await expect(page.getByText(/本地 SQLite/)).toBeVisible();
+    await expect(page.getByText(/历史与设置安全保存在这台电脑/)).toBeVisible();
     await expect(page.getByText(/不检测真实手指/)).toBeVisible();
     await assertNoPageOverflow(page);
     await expect(page).toHaveScreenshot(`onboarding-${testInfo.project.name}.png`, {
@@ -135,7 +135,7 @@ test.describe.serial("local-first onboarding and persisted training", () => {
         block: { target_text: string; rationale: string; block_index: number };
         adaptiveDebug?: { selectedFeatures: string[] };
       };
-      await expect(page.getByText(body.block.rationale)).toBeVisible();
+      await expect(page.getByText(body.block.rationale)).toHaveCount(0);
       if (index < 4) {
         const nextBlockPromise = page.waitForResponse(
           (response) =>
@@ -154,7 +154,7 @@ test.describe.serial("local-first onboarding and persisted training", () => {
     }
 
     await expect(page.getByRole("heading", { name: "这一轮完成了" })).toBeVisible();
-    await expect(page.getByText(/已写入本机 SQLite/)).toBeVisible();
+    await expect(page.getByText(/已安全保存到这台电脑/)).toBeVisible();
     await expect(page).toHaveScreenshot(`completion-${testInfo.project.name}.png`, {
       fullPage: true,
       animations: "disabled",
@@ -240,10 +240,18 @@ test.describe.serial("local-first onboarding and persisted training", () => {
 
     const timeProgress = page.getByRole("progressbar", { name: "基线有效活动时间进度" });
     await page.getByRole("button", { name: "暂停" }).click();
+    const pauseDialog = page.getByRole("dialog", { name: "训练已暂停" });
+    await expect(pauseDialog.getByRole("button", { name: "继续训练" })).toBeFocused();
+    await expect(pauseDialog.getByRole("button", { name: "退出" })).toBeVisible();
     const pausedProgress = await timeProgress.getAttribute("aria-valuenow");
     await page.clock.fastForward("02:00");
     await expect(timeProgress).toHaveAttribute("aria-valuenow", pausedProgress ?? "0");
-    await page.getByRole("button", { name: "继续", exact: true }).click();
+    await pauseDialog.getByRole("button", { name: "退出" }).click();
+    const exitDialog = page.getByRole("dialog", { name: "结束这次训练？" });
+    await expect(exitDialog).toBeVisible();
+    await exitDialog.getByRole("button", { name: "继续训练" }).click();
+    await expect(pauseDialog).toBeVisible();
+    await pauseDialog.getByRole("button", { name: "继续训练" }).click();
     await page.clock.fastForward("04:00");
 
     const completePromise = page.waitForResponse(

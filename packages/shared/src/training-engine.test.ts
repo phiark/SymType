@@ -239,6 +239,7 @@ describe("micro-block scoring and generation", () => {
       expect(first.length).toBeGreaterThanOrEqual(20);
       expect(first.length).toBeLessThanOrEqual(60);
       expect(first.text.length).toBe(first.length);
+      expect(first.text).not.toMatch(/\s$/u);
       expect(first.explanation.length).toBeGreaterThan(0);
     }
   );
@@ -314,6 +315,61 @@ describe("micro-block scoring and generation", () => {
     expect(block.candidateIds).toEqual([]);
     expect(block.explanation).toMatch(/伪词/);
   });
+
+  it("does not end a generated micro-block with a truncated separator", () => {
+    const block = generateMicroBlock({
+      seed: "terminal-separator",
+      phase: "warmup",
+      focusFeatures: [],
+      candidates: [
+        {
+          id: "twenty-characters",
+          text: "abcdefghijklmnopqrst",
+          features: [],
+          naturalness: 1,
+          difficulty: 0.5
+        }
+      ],
+      targetLength: 21,
+      minimumLength: 20,
+      maximumLength: 60
+    });
+
+    expect(block.text).toBe("abcdefghijklmnopqrst");
+    expect(block.length).toBe(20);
+    expect(block.text).not.toMatch(/\s$/u);
+  });
+
+  it.each([20, 21, 40, 59, 60])(
+    "preserves valid bounds without terminal whitespace at target length %i",
+    (targetLength) => {
+      const block = generateMicroBlock({
+        seed: `terminal-boundary:${targetLength}`,
+        phase: "explore",
+        focusFeatures: [],
+        candidates: [
+          {
+            id: `candidate-${targetLength}`,
+            text: "x".repeat(targetLength - 1),
+            features: [],
+            naturalness: 1,
+            difficulty: 0.5
+          }
+        ],
+        targetLength,
+        minimumLength: 20,
+        maximumLength: 60
+      });
+
+      expect(block.length).toBeGreaterThanOrEqual(20);
+      expect(block.length).toBeLessThanOrEqual(targetLength);
+      expect(block.text).not.toMatch(/\s$/u);
+      if (targetLength === 20) {
+        expect(block.text).toBe("x".repeat(20));
+        expect(block.candidateIds).toEqual(["candidate-20", "candidate-20"]);
+      }
+    }
+  );
 
   it("keeps phase allocations normalized and accuracy-sensitive", () => {
     const low = allocateLessonPhases(0.9, 5);

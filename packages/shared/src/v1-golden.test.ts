@@ -89,11 +89,11 @@ describe("V1 golden training outputs", () => {
       targetDifficulty: 0.55
     });
     expect({ ...block, score: round(block.score) }).toEqual({
-      text: "act tact contact exact const total = count + 1; ",
+      text: "act tact contact exact const total = count + 1;",
       phase: "blocked",
       focusFeatures: ["bigram:ct", "char:c"],
       candidateIds: ["focus-ct", "code", "fluent"],
-      length: 48,
+      length: 47,
       score: 0.489130434783,
       explanation: "集中练习 c→t、c",
       seed: "v1-lesson-golden"
