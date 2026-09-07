@@ -96,6 +96,7 @@ test("100k fixture supports Today, a completed course, and populated Analytics",
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("button", { name: /开始今日训练/u })).toBeVisible();
+  await page.locator("summary").filter({ hasText: "查看本轮重点与依据" }).click();
   await expect(page.getByText(/个样本/u).first()).toBeVisible();
   const todayRenderMs = performance.now() - todayStartedAt;
 

@@ -385,7 +385,7 @@ test("data controls export real files and restore a validated JSON backup with a
       hasText: "无法读取所选备份。当前数据未改变；请选择有效的 SymType 备份后重试。"
     })
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "自动备份当前库并恢复" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "自动备份当前数据并恢复" })).toHaveCount(0);
 
   await restoreInput.setInputFiles({
     name: "symtype-valid.json",
@@ -401,7 +401,7 @@ test("data controls export real files and restore a validated JSON backup with a
   page.once("dialog", (dialog) => void dialog.accept());
   await Promise.all([
     page.waitForNavigation({ waitUntil: "domcontentloaded" }),
-    page.getByRole("button", { name: "自动备份当前库并恢复" }).click()
+    page.getByRole("button", { name: "自动备份当前数据并恢复" }).click()
   ]);
   await page.waitForLoadState("networkidle");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");

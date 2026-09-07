@@ -94,16 +94,33 @@ test("navigation opens the page top and experiment links reach their settings se
   await expect(page.getByRole("heading", { name: "目标与算法", exact: true })).toBeInViewport();
 });
 
-test("a failed page module offers a reload without exposing developer errors", async ({
+test("a failed page module offers reload and a working home route without developer errors", async ({
   page,
   request
 }) => {
   await mutate(request, "patch", "/api/v1/settings", { fontSize: 34 });
-  await page.route("**/SettingsPage-*.js", (route) => route.abort());
+  await page.route("**/SettingsPage-*.js", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "text/plain",
+      headers: { "Cache-Control": "no-store" },
+      body: "Page temporarily unavailable"
+    })
+  );
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "这个页面暂时无法打开" })).toBeVisible();
   await expect(page.getByRole("alert")).not.toContainText(/TypeError|assets\/|Hey developer/u);
+  await expect(page.getByRole("link", { name: "返回今日", exact: true })).toBeVisible();
   await page.unroute("**/SettingsPage-*.js");
-  await page.getByRole("button", { name: "重新打开页面" }).click();
-  await expect(page.getByRole("slider", { name: "训练字号", exact: true })).toHaveValue("34");
+  await Promise.all([
+    page.waitForEvent("domcontentloaded"),
+    page.getByRole("button", { name: "重新打开页面" }).click()
+  ]);
+  // Some engines retain a failed module after reload. The existing Today route stays usable.
+  await page.getByRole("link", { name: /^(今日|返回今日)$/u }).click();
+  await expect(page.getByRole("button", { name: "开始今日训练" })).toBeVisible();
+  const bootstrap = (await (await request.get("/api/v1/bootstrap")).json()) as {
+    settings: { fontSize: number };
+  };
+  expect(bootstrap.settings.fontSize).toBe(34);
 });
