@@ -818,6 +818,50 @@ describe.sequential("SymType local server integration", () => {
     ).toBe("active");
   });
 
+  test.each(["abandon", "recover"] as const)(
+    "%s persists fractional browser timing and remains readable after restart",
+    async (action) => {
+      const context = await openApp();
+      const session = await createSession(context);
+      const block = createFixtureBlock(context, session, "aa");
+      const accepted = await context.app.inject({
+        method: "POST",
+        url: `/api/v1/sessions/${session.id}/events`,
+        headers: mutationHeaders(context),
+        payload: eventPayload(session, block, [
+          event(0, "a", "a", { clientTimeMs: 0, ikiMs: null }),
+          event(1, "a", "a", { clientTimeMs: 1250.25, ikiMs: 1250.25 })
+        ])
+      });
+      expect(accepted.statusCode).toBe(200);
+      const saved = await context.app.inject({
+        method: "POST",
+        url: `/api/v1/sessions/${session.id}/${action}`,
+        headers: mutationHeaders(context),
+        payload: {}
+      });
+      expect(saved.statusCode, saved.body).toBe(200);
+      await closeApp(context);
+      const reopened = await openApp();
+      const result = reopened.database.recoverSession(session.id);
+      expect(result).toMatchObject({
+        status: action === "abandon" ? "abandoned" : "completed",
+        summary: { characters: 2, activeMs: 1250, rawWpm: 19.2, netWpm: 19.2 }
+      });
+      expect(
+        reopened.database.db
+          .prepare("SELECT iki_ms FROM keystroke_events WHERE session_id = ? AND sequence = 1")
+          .get(session.id)
+      ).toEqual({ iki_ms: 1250.25 });
+      const backup = await reopened.app.inject({
+        method: "GET",
+        url: "/api/v1/export/json",
+        headers: { host: HOST }
+      });
+      expect(backup.statusCode, backup.body).toBe(200);
+    }
+  );
+
   test("interrupted sessions recover once, reject late events, and can be abandoned with a summary", async () => {
     const context = await openApp();
     const session = await createSession(context);
