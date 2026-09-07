@@ -1058,3 +1058,47 @@ focused mode, calibration, game, Today/input/audio, and visual-functional result
   ChatGPT Chrome Extension, so Chrome screenshots, combined visual comparison, 1024/200% reflow, and
   the affected browser flows remain blocked in `design-qa.md`. Safari evidence is not used as a
   substitute, and no replacement visual baseline is claimed.
+
+## 2026-09-07: Issue 18 product journey and measured performance
+
+### Product review and implementation
+
+- Created Issue #18 and `refactor/18-product-experience` from current `origin/main` at `481a2cb` in
+  a separate worktree. The active macOS packaging branch and its five untracked PNGs are preserved.
+- Captured all six surfaces and the ready/active/pause/exit loop before changing the product. The
+  current review records thirteen reproducible findings, design sources, decisions and rollback.
+- Incorporated the unfinished Issue #14 correction source with its original cherry-pick attribution,
+  then converged task hierarchy, selected scope, settings Save, destination/configuration focus,
+  empty Today chart loading and plain failed-page recovery with a working home route.
+- Fixed repeated-text/new-block identity and the fractional-IKI save/recover HTTP 500 discovered
+  during a real browser replay. Raw timing, existing integer output, schema and metric definitions
+  remain intact; V2-D015/D017 explicitly bound the accepted defect corrections.
+- Cached only SQLite-current statistics for the four existing periods, with transaction bypass and
+  local/external write, rollback, calendar and returned-object isolation tests. The complete 100k
+  report remains equal. A trial median rewrite was discarded after failing to show cold-read value.
+
+### Current verification
+
+- Supported Node.js 22.16.0 final `npm run check`: zero-warning lint, strict type checks, 64 Vitest
+  files / 487 passed / one intentional skip, 22 literal regressions and all production builds.
+- Full non-update Chromium/WebKit E2E: 85 passed and one intentional duplicate lifecycle-owner skip
+  in 7.4 minutes. The twelve product-journey cases also passed separately on final product source.
+- All 30 tracked PNGs were inspected at original resolution in engine pairs; UI-REVIEW-006 records
+  the current seven-dimension result and its scope. Separate in-app before/after walkthroughs include
+  real synthetic input, five glyph states, pause, Tab/Enter exit and acknowledged Save and Exit.
+- The 100k product smoke passed Today → five micro-blocks → completion → Analytics with 100,245
+  final characters and an unchanged source fixture hash. Original automatic text now omits the
+  already accepted terminal whitespace; no imported text or metric rule is redefined.
+- Paired repeated-statistics p95: 979.45 → 1.75 ms. A single cold profile remains 1099.50 ms.
+  Final Chromium/WebKit next-rAF input p95 is 7.08/15.00 ms, with 141 persisted mixed-input events per
+  engine and no measured listener/timer/audio-node growth. Short samples are not a longitudinal study.
+- Empty startup health p95 is 224.21 ms and launcher app-work p95 is 750.80 ms. Final production bundle
+  evidence follows an explicit manifest build; the no-build inspector retains its accurate metadata.
+  All raw fragments and source-specific limits are linked from the Issue #18 acceptance log.
+
+### Delivery state
+
+Local acceptance is recorded in `docs/v2/evidence/issue-18/ACCEPTANCE.md`. The linked Issue #18 PR is
+required to pass current CI and receive independent approval before merge. Historical Chrome-profile
+blockage is preserved as history, not claimed as a current manual Chrome pass. The official STE PDF,
+missing Keybr references and other explicitly uncollected evidence retain their existing dispositions.

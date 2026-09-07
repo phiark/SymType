@@ -232,3 +232,46 @@ This section records only defects confirmed during V2 work. Add a regression tes
 - UI-005: Focused training repeated storage, phase, rationale, and block-count chrome around the lesson.
   The active state now keeps accessible progress and save/recovery status while removing those
   redundant visual labels.
+
+## V2-D016: Product journey convergence and revision-validated statistics
+
+**Date:** 2026-09-07
+**State:** Accepted scope under the maintainer's product-wide refactor request; Issue #18
+
+Optimize the complete choose/type/review/return loop while preserving every V1 function. Reopen
+visual convergence where direct before screenshots and keyboard review show choice overload,
+misplaced primary actions, lost focus, ambiguous glyphs, or poor recovery. Keep the existing design
+system, six routes, training modes, test durations, settings, mappings, metric definitions and game
+rules. No new framework, dependency, remote service or database migration is justified.
+
+A current 100k-event baseline confirms that repeated all-time statistics occupy the local server for
+about one second per request. Reuse a derived report only while SQLite's local change count,
+external-commit data version and period calendar boundary still match. Bypass transaction snapshots,
+clone returned values and keep at most four period entries. The underlying aggregation algorithm is
+unchanged. The first read after invalidation remains a measured limitation. The empty Today page
+loads charts only after real trend data exists.
+
+The earlier Issue 14 batch is incorporated through its original commit, including V2-D015's bounded
+automatic-text correction. A repeated target under a new persisted block ID resets input state
+without remounting the typing surface. Local update/render failures receive an explicit reload
+screen, without raw error output or a claim that unsaved edits survived.
+
+Keep the change only with literal output equivalence, cache invalidation tests, both-engine journey
+and data-safety coverage, reviewed visual evidence and the minimal performance baseline. Independent
+approval, passing CI, current main and resolved conversations remain mandatory for merge. See
+[the product review](ISSUE-18-PRODUCT-REVIEW.md) for evidence and rollback.
+
+## V2-D017: Persist inferred browser durations in the existing integer-ms contract
+
+**Date:** 2026-09-07
+**State:** Confirmed defect correction under Issue #18 and V2-D014
+
+The mixed-input performance replay returned HTTP 500 on save/exit. A minimal replay found that
+fractional browser IKI values produced fractional inferred `activeMs`; the persisted summary schema
+requires integer milliseconds. Recovery without an explicit duration failed at the same boundary.
+Round the aggregate duration once before computing the summary, matching the existing completion
+request/API contract. Keep raw event timings unchanged and preserve all integer-duration outputs.
+The rounding difference is at most half a millisecond per inferred session, with the existing
+one-second minimum retained. Integration tests exercise abandon and complete recovery, restart,
+unchanged fractional raw timing, and JSON export. The browser mixed-input replay is the acceptance
+case; do not weaken the persisted schema or replace failed data.

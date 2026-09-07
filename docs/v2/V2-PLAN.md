@@ -1,10 +1,12 @@
 # SymType 2.0 Delivery Plan
 
-**Last update:** 2026-07-24
+**Last update:** 2026-09-07
 **Method:** Document-driven release convergence
-**Release state:** PR #4 is merged on `main` as `481a2cb`; the maintainer-authorized batch for
-Issues #8, #10, #11, #13, #14, and #15 is being verified on
-`fix/14-typing-session-ui-batch`
+**Release state:** `main` remains at PR #4 (`481a2cb`). Issue #18 is the current product
+experience and measured-performance candidate on `refactor/18-product-experience`.
+The unfinished Issue 14 corrections are incorporated with their original source attribution.
+Implementation acceptance is recorded in [the Issue 18 review](ISSUE-18-PRODUCT-REVIEW.md).
+CI and independent approving review remain required before merge.
 
 ## Purpose
 
@@ -14,7 +16,27 @@ from the existing V1 business contract. Work now follows release value: data saf
 product behavior, browser compatibility, and release evidence. Performance, maintenance, and
 documentation work does not expand without a confirmed release problem.
 
-## Current release snapshot
+## Issue 18 current plan
+
+The maintainer's 2026-09-07 request reopens UI/UX, operation, and measured performance convergence.
+[V2-D016](DECISIONS.md#v2-d016-product-journey-convergence-and-revision-validated-statistics)
+bounds this work to existing V1 functions. The active Issue, branch, evidence and rollback record are
+in [ISSUE-18-PRODUCT-REVIEW.md](ISSUE-18-PRODUCT-REVIEW.md).
+
+1. Protect the existing packaging worktree and use a separate worktree based on current main.
+2. Capture all six surfaces and the typing/exit loop before modifying the product.
+3. Address confirmed choice hierarchy, focus, save reachability, input state and recovery defects.
+4. Optimize repeated statistics and empty-dashboard loading with equivalent data outputs.
+5. Re-run fixed outputs, the full quality gate, both browser engines, visual/axe evidence and the
+   minimal empty/100k performance baseline.
+6. Publish the linked PR; require CI, resolved conversations and independent approval before merge.
+
+The sections below retain the July release history. Their old counts, cancelled-design disposition,
+and Chrome-profile block describe that earlier checkpoint; the Issue 18 review and current
+requirements matrix supersede those candidate-status statements. The official STE PDF remains
+externally blocked. Optional scale and maintenance platforms remain outside the release gate.
+
+## Historical release snapshot (2026-07-24)
 
 - Supported Node.js 22.16.0 builds, starts, and passes the current strict type check.
 - Literal V1 golden tests freeze lesson selection, metrics, keyboard behavior, event conversion,
@@ -59,7 +81,7 @@ documentation work does not expand without a confirmed release problem.
 - The official ASD-STE100 Issue 9 PDF is unavailable. The normative review remains externally
   blocked and does not block independent product work.
 
-## Release convergence classification
+## Historical release convergence classification
 
 | Class           | Work                                                                           | Reason and exit                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
@@ -78,7 +100,7 @@ documentation work does not expand without a confirmed release problem.
 | Cancelled       | New V2 visual redesign or duplicate screenshot platform                        | No visual redesign is justified; use existing visual evidence plus focused review of corrected interactions.           |
 | Cancelled       | New STE checker platform                                                       | Keep only the external official-PDF review blocker and the existing concise record.                                    |
 
-## Gate status
+## Historical gate status
 
 | Gate                         | Release exit                                                | Status      | Evidence or disposition                       |
 | ---------------------------- | ----------------------------------------------------------- | ----------- | --------------------------------------------- |
@@ -182,7 +204,7 @@ created the documented file-free bootstrap and was pushed to `main`. Issue #1 an
 `chore/1-symtype-2-release` were then created from that base. The entire reviewed project entered
 through PR #2 and was squash-merged as `a10e9a8`; no product file was committed directly to `main`.
 
-## Active risks
+## Historical risk record
 
 | Risk                                                    | Control                                                                    | State              |
 | ------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------ |
@@ -194,7 +216,7 @@ through PR #2 and was squash-merged as `a10e9a8`; no product file was committed 
 | Official STE PDF is absent                              | Do not use unofficial summaries; request only the local official PDF path  | Externally blocked |
 | 100k all-time stats blocks the local event loop briefly | Keep observable; optimize only after real user evidence                    | Accepted           |
 
-## Outcomes
+## Historical outcomes
 
 Gates 0, 1, 2, and 5 are complete; Gate 3 is cancelled by evidence and Gate 6 is externally
 blocked. PR #2 delivered the release candidate to `main` as `a10e9a8`, and PR #4 delivered the

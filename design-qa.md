@@ -1,41 +1,45 @@
-# Design QA — focused training correction batch
+# Design QA — Issue 18 product journey
 
-## Sources
+Date: 2026-09-07. Source: `origin/main` at `481a2cb`. Candidate: `refactor/18-product-experience`.
 
-- Keybr interaction reference:
-  <https://github.com/user-attachments/assets/b0448ad6-81d0-4ddb-8dc6-bed7768db340>
-- Keybr keyboard reference:
-  <https://github.com/user-attachments/assets/9047e332-d5e7-4d55-bb31-4a39e2ce77ff>
-- Keybr keyboard-state reference:
-  <https://github.com/user-attachments/assets/09b20a2e-12fb-4ef4-ae52-d5d92965203c>
-- Implementation source: `fix/14-typing-session-ui-batch`, local production server on port 4187.
+[The product review](docs/v2/ISSUE-18-PRODUCT-REVIEW.md) records the prioritized findings, source
+references, before/after captures, interaction health, measurement, checks and rollback. All captures
+use synthetic local data. Original screenshots are under `docs/v2/evidence/issue-18`.
 
-## Capture conditions
+## Capture and review conditions
 
-- Required browser: Chrome, as selected by the maintainer.
-- Required states: active practice, all five glyph states, ANSI keyboard target state, paused
-  dialog, and guarded exit confirmation.
-- Required viewports: desktop 1224×800 plus 1024px and 200% reflow checks.
-- Density: system display density, recorded with the eventual Chrome captures.
+- Manual: Codex in-app browser, 1280×720, system display density, isolated local database.
+- Automated: Chromium and WebKit, desktop/1024px, light/dark/system theme and reduced motion.
+- Dynamic coverage: five glyph states, actual ANSI keyboard cues, pause, Tab/Enter exit,
+  guarded save/exit, configuration focus return, sticky settings save, recovery and completion.
+- Existing Playwright screenshot baselines are reviewed and updated for the deliberate changes.
+  Axe, overflow, reflow and keyboard behavior remain independent functional assertions.
+- A physical Safari manual run is not claimed. The July Chrome-extension limitation is retained
+  below as historical context; current evidence names the browsers actually used.
 
-## Combined comparison
+## Iteration decisions
 
-No final combined source/implementation comparison is recorded yet. Chrome is running, but the
-active profile does not have the ChatGPT Chrome Extension installed/enabled, so the implementation
-state cannot be captured or inspected through the selected browser. Safari is intentionally not used
-as a substitute.
+1. Put the existing primary task before optional scope filters, catalogues and experiment controls.
+2. Preserve selected context in disclosure summaries and return keyboard focus after panel closure.
+3. Retain the Issue 14 glyph, keyboard and guarded-pause corrections, then validate actual input.
+4. Keep saved-state feedback and Save visible through the settings journey.
+5. Recover a failed lazy page with a plain reload action and home link, with saved-state guidance.
+6. Verify every original mode and the data/backup lifecycle; measure performance separately from
+   visual appearance.
 
-## Iteration history
+## Historical Issue 14 references
 
-1. Replaced the completed-looking filled current glyph with an outlined current cue and exposed
-   current, untouched, correct, incorrect, and corrected semantic states.
-2. Rebuilt the virtual keyboard from the shared ANSI column/width data and strengthened finger-zone,
-   boundary, home-key, and target cues without changing any of the 54 mappings.
-3. Added a contained Continue/Exit pause dialog that delegates exit to the existing guarded owner.
-4. Removed redundant active-session labels while retaining progress, metrics, recovery, pause, and
-   exit.
-5. Passed component/accessibility assertions and the complete Node 22 non-browser quality gate.
+The earlier branch was `fix/14-typing-session-ui-batch`; it passed component checks but recorded an
+unavailable Chrome extension. It had no completed visual acceptance and is not evidence of a manual
+Chrome pass. Its source is incorporated with `git cherry-pick -x` and revalidated here.
 
-## Final result
+- [Typing reference](https://github.com/user-attachments/assets/b0448ad6-81d0-4ddb-8dc6-bed7768db340)
+- [Keyboard reference](https://github.com/user-attachments/assets/9047e332-d5e7-4d55-bb31-4a39e2ce77ff)
+- [Keyboard-state reference](https://github.com/user-attachments/assets/09b20a2e-12fb-4ef4-ae52-d5d92965203c)
 
-blocked
+## Delivery state
+
+The Issue 18 review and its [acceptance log](docs/v2/evidence/issue-18/ACCEPTANCE.md) are the current
+record. All 30 tracked PNGs were inspected at original resolution; UI-REVIEW-006 records the current
+visual result. The final non-update browser suite passed 85 cases with one intentional skip. Repository delivery still requires its linked
+PR to pass CI and receive an independent approving review before merge.

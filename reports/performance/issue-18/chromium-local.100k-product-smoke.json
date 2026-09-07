@@ -1,0 +1,35 @@
+{
+  "command": "SYMTYPE_PERF_FIXTURE_PATH=.symtype-perf-data/fixtures/100k.sqlite3 SYMTYPE_PERF_OBSERVATION_DIR=reports/performance/fragments SYMTYPE_PERF_RUN_ID=100k-product-smoke npm exec playwright -- test --config=playwright.performance.config.ts --project=chromium-local tests/performance/100k-product-smoke.spec.ts",
+  "environment": {
+    "architecture": "arm64",
+    "browser": "Chromium 149.0.7827.55",
+    "node": "v22.16.0",
+    "platform": "darwin",
+    "project": "chromium-local"
+  },
+  "fixture": {
+    "eventsBefore": 100000,
+    "sha256Before": "434253c1e5dcd4a1d8a8bb252745711e6abe6c10a06d0780072658f583e62093",
+    "sha256After": "434253c1e5dcd4a1d8a8bb252745711e6abe6c10a06d0780072658f583e62093",
+    "sourceUnchanged": true
+  },
+  "measurementsMs": {
+    "analyticsRender": 2060.8301250000004,
+    "courseComplete": 856.9762500000002,
+    "dashboardAfter": 3.452957999999853,
+    "dashboardBefore": 5.893540999999914,
+    "statisticsAfter": 4.014208000000508,
+    "statisticsBefore": 1130.110125,
+    "todayRender": 1022.239084,
+    "total": 6804.490667
+  },
+  "result": {
+    "completedCharacters": 245,
+    "finalCharacters": 100245,
+    "renderedFeatureViews": [
+      "二元组合",
+      "映射指区",
+      "字符类别"
+    ]
+  }
+}

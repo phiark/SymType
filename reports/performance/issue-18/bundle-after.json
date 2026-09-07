@@ -1,0 +1,627 @@
+{
+  "schemaVersion": 1,
+  "fragment": "bundle",
+  "environment": {
+    "capturedAt": "2026-09-07T07:30:43.572Z",
+    "command": "node --import tsx scripts/perf/run-bundle.mjs",
+    "cacheState": "existing build",
+    "operatingSystem": {
+      "platform": "darwin",
+      "release": "27.0.0",
+      "architecture": "arm64"
+    },
+    "processor": {
+      "model": "Apple M3 Pro",
+      "logicalCores": 11
+    },
+    "memoryBytes": 19327352832,
+    "nodeVersion": "v22.16.0",
+    "npmVersion": "11.7.0",
+    "worktree": {
+      "commit": "e818c6dafd02d55a2257f1eec86ff1c804a60646",
+      "dirty": true,
+      "statusLineCount": 58,
+      "statusSha256": "deac89605a1ce6a3355e61ccaf1ad69f2c7b1f6787212de1b5daad151255bf86"
+    }
+  },
+  "build": {
+    "clean": false,
+    "reason": "--no-build requested; result is not clean-build release evidence"
+  },
+  "metrics": {
+    "bundle.practice_js_gzip_kib": {
+      "unit": "KiB",
+      "value": 169.9326171875
+    },
+    "bundle.practice_css_gzip_kib": {
+      "unit": "KiB",
+      "value": 12.3466796875
+    },
+    "bundle.practice_transfer_kib": {
+      "unit": "KiB",
+      "value": 599.5439453125
+    },
+    "bundle.max_lazy_chunk_gzip_kib": {
+      "unit": "KiB",
+      "value": 100.521484375
+    }
+  },
+  "practiceInitial": {
+    "javascript": {
+      "rawBytes": 545909,
+      "gzipBytes": 174011,
+      "files": [
+        {
+          "path": "assets/PracticePage-D0kGtxeV.js",
+          "rawBytes": 25376,
+          "gzipBytes": 9973,
+          "sha256": "dc9a7abafcb96b79ae494fe871609737ce8825582cbbfe5c6863bf1e1f152373"
+        },
+        {
+          "path": "assets/circle-check-BrFjTsc_.js",
+          "rawBytes": 224,
+          "gzipBytes": 203,
+          "sha256": "0cecd6249c88924a1773ce75530dc97f7d0fd021f488b9724a4e241e563ba4b2"
+        },
+        {
+          "path": "assets/index-YvNtuIu9.js",
+          "rawBytes": 472527,
+          "gzipBytes": 145805,
+          "sha256": "931801714fb50f3c981e9d5781fad1401e5c1df4a980eb420e5d6138ae6fe5d0"
+        },
+        {
+          "path": "assets/rotate-ccw-CaS9ECKt.js",
+          "rawBytes": 249,
+          "gzipBytes": 223,
+          "sha256": "79041f0c9c3a96a9c2a21f21c46c4398f240151c08e4f682d65c25adc0a573be"
+        },
+        {
+          "path": "assets/training-labels-CogXO4rj.js",
+          "rawBytes": 464,
+          "gzipBytes": 400,
+          "sha256": "f55dd06f06b2021ad5a316aa608389eb5fc84e9afebe9e8b257704088bd585dc"
+        },
+        {
+          "path": "assets/useSessionNavigationGuard-DoMr7TVj.js",
+          "rawBytes": 47069,
+          "gzipBytes": 17407,
+          "sha256": "0c7b50dd4b49f7ada134086a8cfefe22cd1a6d667b52a3ac1f88690837f6c25f"
+        }
+      ]
+    },
+    "css": {
+      "rawBytes": 67395,
+      "gzipBytes": 12643,
+      "files": [
+        {
+          "path": "assets/index-zEfofMcL.css",
+          "rawBytes": 67395,
+          "gzipBytes": 12643,
+          "sha256": "99a2950b2fc0538ee25e941801b176aa5fb6f919f7bf486353d6b7ad9f00b69c"
+        }
+      ]
+    },
+    "assets": {
+      "rawBytes": 0,
+      "gzipBytes": 0,
+      "files": []
+    },
+    "transfer": {
+      "rawBytes": 613933,
+      "gzipBytes": 187027,
+      "actualBytes": 613933,
+      "requests": [
+        {
+          "path": "/train/session",
+          "contentEncoding": "identity",
+          "decodedBytes": 629,
+          "transferBytes": 629
+        },
+        {
+          "path": "/assets/PracticePage-D0kGtxeV.js",
+          "contentEncoding": "identity",
+          "decodedBytes": 25376,
+          "transferBytes": 25376
+        },
+        {
+          "path": "/assets/circle-check-BrFjTsc_.js",
+          "contentEncoding": "identity",
+          "decodedBytes": 224,
+          "transferBytes": 224
+        },
+        {
+          "path": "/assets/index-YvNtuIu9.js",
+          "contentEncoding": "identity",
+          "decodedBytes": 472527,
+          "transferBytes": 472527
+        },
+        {
+          "path": "/assets/rotate-ccw-CaS9ECKt.js",
+          "contentEncoding": "identity",
+          "decodedBytes": 249,
+          "transferBytes": 249
+        },
+        {
+          "path": "/assets/training-labels-CogXO4rj.js",
+          "contentEncoding": "identity",
+          "decodedBytes": 464,
+          "transferBytes": 464
+        },
+        {
+          "path": "/assets/useSessionNavigationGuard-DoMr7TVj.js",
+          "contentEncoding": "identity",
+          "decodedBytes": 47069,
+          "transferBytes": 47069
+        },
+        {
+          "path": "/assets/index-zEfofMcL.css",
+          "contentEncoding": "identity",
+          "decodedBytes": 67395,
+          "transferBytes": 67395
+        }
+      ]
+    }
+  },
+  "lazyChunks": [
+    {
+      "path": "assets/AreaChart-BPZL3n40.js",
+      "rawBytes": 349288,
+      "gzipBytes": 102934,
+      "sha256": "ab7cf2c86de0bb7d29a5ed7928c1e70d21abbe9009469eb4fc76cf80589e749d"
+    },
+    {
+      "path": "assets/useSessionNavigationGuard-DoMr7TVj.js",
+      "rawBytes": 47069,
+      "gzipBytes": 17407,
+      "sha256": "0c7b50dd4b49f7ada134086a8cfefe22cd1a6d667b52a3ac1f88690837f6c25f"
+    },
+    {
+      "path": "assets/AnalyticsPage-CEK7_2e5.js",
+      "rawBytes": 45824,
+      "gzipBytes": 15284,
+      "sha256": "d19dd1df1582fbcb739087d963b055c5c431416a8489cf4aeb3c1ae701a66981"
+    },
+    {
+      "path": "assets/PracticePage-D0kGtxeV.js",
+      "rawBytes": 25376,
+      "gzipBytes": 9973,
+      "sha256": "dc9a7abafcb96b79ae494fe871609737ce8825582cbbfe5c6863bf1e1f152373"
+    },
+    {
+      "path": "assets/GamePage-C0TPPYwF.js",
+      "rawBytes": 23598,
+      "gzipBytes": 9165,
+      "sha256": "850b5b8a35c2c1368b01157dba2f7f9f3617ae4b62f26e7b9ad961f06812c57d"
+    },
+    {
+      "path": "assets/SettingsPage-DXqHrroR.js",
+      "rawBytes": 26742,
+      "gzipBytes": 8896,
+      "sha256": "134c06ad7ac9d415f349bd8f7869c3efbb06871ff42e43751cfb354c985c213f"
+    },
+    {
+      "path": "assets/TrainPage-Tx3rn4Z5.js",
+      "rawBytes": 20967,
+      "gzipBytes": 7941,
+      "sha256": "8dbfb893e75729b95819ccde3b58e45db4d1e95981c083d77baeff3e970d8221"
+    },
+    {
+      "path": "assets/TestsPage-BlFhw24b.js",
+      "rawBytes": 12757,
+      "gzipBytes": 5219,
+      "sha256": "6f5526635430196bc078097b4909df888b7346bce4246bea6fe715851c263ff9"
+    },
+    {
+      "path": "assets/TodayPage-lmvqpzjv.js",
+      "rawBytes": 8680,
+      "gzipBytes": 3928,
+      "sha256": "94c6d1b9fda2947562077b9d56bba66f31705da13dd13c88c85b57c747be3598"
+    },
+    {
+      "path": "assets/TodayTrendChart-CyazgSVL.js",
+      "rawBytes": 841,
+      "gzipBytes": 520,
+      "sha256": "46fc0c0597f3e2a8c0ed7290c00fe2f354614a344393bb9c151a2b7f968930dd"
+    },
+    {
+      "path": "assets/training-labels-CogXO4rj.js",
+      "rawBytes": 464,
+      "gzipBytes": 400,
+      "sha256": "f55dd06f06b2021ad5a316aa608389eb5fc84e9afebe9e8b257704088bd585dc"
+    },
+    {
+      "path": "assets/upload-g_4_kBOr.js",
+      "rawBytes": 357,
+      "gzipBytes": 269,
+      "sha256": "e391fc6f113085bdf56d9465d4405bed05d0313596be24f7c6f65e2cc2a5821f"
+    },
+    {
+      "path": "assets/gauge-BfA7igrX.js",
+      "rawBytes": 336,
+      "gzipBytes": 267,
+      "sha256": "b009f0aefe004d4cc072f7385ce71d41a177399b8e118732a7b03be7490fdeaa"
+    },
+    {
+      "path": "assets/lock-keyhole-D0Qc7NIH.js",
+      "rawBytes": 306,
+      "gzipBytes": 259,
+      "sha256": "aacd557656117cd5de37a494b94a39754791a7372666905b837a38845a8fc76d"
+    },
+    {
+      "path": "assets/rotate-ccw-CaS9ECKt.js",
+      "rawBytes": 249,
+      "gzipBytes": 223,
+      "sha256": "79041f0c9c3a96a9c2a21f21c46c4398f240151c08e4f682d65c25adc0a573be"
+    },
+    {
+      "path": "assets/circle-check-BrFjTsc_.js",
+      "rawBytes": 224,
+      "gzipBytes": 203,
+      "sha256": "0cecd6249c88924a1773ce75530dc97f7d0fd021f488b9724a4e241e563ba4b2"
+    },
+    {
+      "path": "assets/target-Cub86TSe.js",
+      "rawBytes": 266,
+      "gzipBytes": 196,
+      "sha256": "d6df8c194ba55d595e607d3f29ee269fe2549ea3d64c1edac39fc35cc9d03471"
+    }
+  ],
+  "firstRouteExclusion": {
+    "chart": [],
+    "game": [],
+    "pass": true
+  },
+  "findings": {
+    "sourceMaps": {
+      "policy": "public production source maps are present",
+      "count": 18,
+      "totalBytes": 4966847,
+      "files": [
+        "assets/AnalyticsPage-CEK7_2e5.js.map",
+        "assets/AreaChart-BPZL3n40.js.map",
+        "assets/GamePage-C0TPPYwF.js.map",
+        "assets/PracticePage-D0kGtxeV.js.map",
+        "assets/SettingsPage-DXqHrroR.js.map",
+        "assets/TestsPage-BlFhw24b.js.map",
+        "assets/TodayPage-lmvqpzjv.js.map",
+        "assets/TodayTrendChart-CyazgSVL.js.map",
+        "assets/TrainPage-Tx3rn4Z5.js.map",
+        "assets/circle-check-BrFjTsc_.js.map",
+        "assets/gauge-BfA7igrX.js.map",
+        "assets/index-YvNtuIu9.js.map",
+        "assets/lock-keyhole-D0Qc7NIH.js.map",
+        "assets/rotate-ccw-CaS9ECKt.js.map",
+        "assets/target-Cub86TSe.js.map",
+        "assets/training-labels-CogXO4rj.js.map",
+        "assets/upload-g_4_kBOr.js.map",
+        "assets/useSessionNavigationGuard-DoMr7TVj.js.map"
+      ]
+    },
+    "remoteFonts": [],
+    "probableRemoteRequests": [],
+    "externalUrlLiterals": [
+      {
+        "file": "assets/AreaChart-BPZL3n40.js",
+        "url": "http://www.w3.org/1999/xhtml"
+      },
+      {
+        "file": "assets/AreaChart-BPZL3n40.js",
+        "url": "https://bit.ly/3cXEKWf"
+      },
+      {
+        "file": "assets/AreaChart-BPZL3n40.js",
+        "url": "https://redux-toolkit.js.org/Errors?code=${e}"
+      },
+      {
+        "file": "assets/AreaChart-BPZL3n40.js",
+        "url": "https://redux.js.org/Errors?code=${e}"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://[${o}]"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://[${r.value}]"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://json-schema.org/draft-04/schema#"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://json-schema.org/draft-07/schema#"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://localhost"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://www.w3.org/1998/Math/MathML"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://www.w3.org/1999/xlink"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://www.w3.org/2000/svg"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "http://www.w3.org/XML/1998/namespace"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "https://github.com/ungap/url-search-params."
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "https://json-schema.org/draft/2020-12/schema"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "https://react.dev/errors/"
+      },
+      {
+        "file": "assets/index-YvNtuIu9.js",
+        "url": "https://reactrouter.com/en/main/routers/picking-a-router."
+      }
+    ],
+    "duplicateModules": []
+  },
+  "graph": {
+    "_AreaChart-BPZL3n40.js": {
+      "file": "assets/AreaChart-BPZL3n40.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_circle-check-BrFjTsc_.js": {
+      "file": "assets/circle-check-BrFjTsc_.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_gauge-BfA7igrX.js": {
+      "file": "assets/gauge-BfA7igrX.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_lock-keyhole-D0Qc7NIH.js": {
+      "file": "assets/lock-keyhole-D0Qc7NIH.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_rotate-ccw-CaS9ECKt.js": {
+      "file": "assets/rotate-ccw-CaS9ECKt.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_target-Cub86TSe.js": {
+      "file": "assets/target-Cub86TSe.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_training-labels-CogXO4rj.js": {
+      "file": "assets/training-labels-CogXO4rj.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_upload-g_4_kBOr.js": {
+      "file": "assets/upload-g_4_kBOr.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "_useSessionNavigationGuard-DoMr7TVj.js": {
+      "file": "assets/useSessionNavigationGuard-DoMr7TVj.js",
+      "src": null,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "_rotate-ccw-CaS9ECKt.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "index.html": {
+      "file": "assets/index-YvNtuIu9.js",
+      "src": "index.html",
+      "isEntry": true,
+      "isDynamicEntry": false,
+      "imports": [],
+      "dynamicImports": [
+        "src/pages/AnalyticsPage.tsx",
+        "src/pages/GamePage.tsx",
+        "src/pages/PracticePage.tsx",
+        "src/pages/SettingsPage.tsx",
+        "src/pages/TestsPage.tsx",
+        "src/pages/TodayPage.tsx",
+        "src/pages/TrainPage.tsx"
+      ],
+      "css": [
+        "assets/index-zEfofMcL.css"
+      ],
+      "assets": []
+    },
+    "src/components/TodayTrendChart.tsx": {
+      "file": "assets/TodayTrendChart-CyazgSVL.js",
+      "src": "src/components/TodayTrendChart.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_AreaChart-BPZL3n40.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "src/pages/AnalyticsPage.tsx": {
+      "file": "assets/AnalyticsPage-CEK7_2e5.js",
+      "src": "src/pages/AnalyticsPage.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_AreaChart-BPZL3n40.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "src/pages/GamePage.tsx": {
+      "file": "assets/GamePage-C0TPPYwF.js",
+      "src": "src/pages/GamePage.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_circle-check-BrFjTsc_.js",
+        "_lock-keyhole-D0Qc7NIH.js",
+        "_rotate-ccw-CaS9ECKt.js",
+        "_useSessionNavigationGuard-DoMr7TVj.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "src/pages/PracticePage.tsx": {
+      "file": "assets/PracticePage-D0kGtxeV.js",
+      "src": "src/pages/PracticePage.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_circle-check-BrFjTsc_.js",
+        "_rotate-ccw-CaS9ECKt.js",
+        "_training-labels-CogXO4rj.js",
+        "_useSessionNavigationGuard-DoMr7TVj.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "src/pages/SettingsPage.tsx": {
+      "file": "assets/SettingsPage-DXqHrroR.js",
+      "src": "src/pages/SettingsPage.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rotate-ccw-CaS9ECKt.js",
+        "_target-Cub86TSe.js",
+        "_upload-g_4_kBOr.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "src/pages/TestsPage.tsx": {
+      "file": "assets/TestsPage-BlFhw24b.js",
+      "src": "src/pages/TestsPage.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_gauge-BfA7igrX.js",
+        "_target-Cub86TSe.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    },
+    "src/pages/TodayPage.tsx": {
+      "file": "assets/TodayPage-lmvqpzjv.js",
+      "src": "src/pages/TodayPage.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_gauge-BfA7igrX.js",
+        "index.html"
+      ],
+      "dynamicImports": [
+        "src/components/TodayTrendChart.tsx"
+      ],
+      "css": [],
+      "assets": []
+    },
+    "src/pages/TrainPage.tsx": {
+      "file": "assets/TrainPage-Tx3rn4Z5.js",
+      "src": "src/pages/TrainPage.tsx",
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_circle-check-BrFjTsc_.js",
+        "_lock-keyhole-D0Qc7NIH.js",
+        "_rotate-ccw-CaS9ECKt.js",
+        "_training-labels-CogXO4rj.js",
+        "_upload-g_4_kBOr.js",
+        "index.html"
+      ],
+      "dynamicImports": [],
+      "css": [],
+      "assets": []
+    }
+  },
+  "manifest": {
+    "path": "apps/web/dist/.vite/manifest.json",
+    "byteSize": 4379
+  },
+  "webDist": "apps/web/dist"
+}
