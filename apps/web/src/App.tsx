@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, Route, Routes } from "react-router-dom";
 
@@ -58,21 +58,19 @@ export function App() {
   }
 
   return (
-    <Suspense fallback={<LoadingState label="正在打开本机页面…" />}>
-      <Routes>
-        <Route element={<AppShell bootstrap={bootstrapQuery.data} />}>
-          <Route index element={<TodayPage />} />
-          <Route path="train" element={<TrainPage />} />
-          <Route path="train/session" element={<PracticePage />} />
-          <Route path="test" element={<TestsPage />} />
-          <Route path="test/session" element={<PracticePage kind="test" />} />
-          <Route path="game" element={<GamePage />} />
-          <Route path="game/play" element={<GamePage play />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
-          <Route path="settings/*" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </Suspense>
+    <Routes>
+      <Route element={<AppShell bootstrap={bootstrapQuery.data} />}>
+        <Route index element={<TodayPage />} />
+        <Route path="train" element={<TrainPage />} />
+        <Route path="train/session" element={<PracticePage />} />
+        <Route path="test" element={<TestsPage />} />
+        <Route path="test/session" element={<PracticePage kind="test" />} />
+        <Route path="game" element={<GamePage />} />
+        <Route path="game/play" element={<GamePage play />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="settings/*" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }

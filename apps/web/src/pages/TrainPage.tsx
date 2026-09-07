@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { normalizeCustomTextContent, runtimeCustomTextContentSchema } from "@symtype/shared";
 import {
@@ -25,79 +25,80 @@ import { api } from "../api";
 import { PageHeader, SegmentedControl } from "../components/ui";
 import { userErrorText } from "../error-presentation";
 import { activeKeyboardLayout, focusCharactersForScopes } from "../keyboard";
+import { trainingModeLabels } from "../training-labels";
 import type { BootstrapData, CustomTextRecord, TraditionalProgress } from "../types";
 
 const modes = [
   {
     id: "smart",
-    name: "智能课程",
-    detail: "弱点、间隔复测、迁移与流畅度的动态微组",
+    name: trainingModeLabels.get("smart"),
+    detail: "根据你的表现安排重点，再用自然文本巩固",
     icon: Sigma,
     recommended: true
   },
   {
     id: "traditional",
-    name: "传统分区课程",
+    name: trainingModeLabels.get("traditional"),
     detail: "主页键、行区、手指区、数字、符号逐级解锁",
     icon: Keyboard
   },
   {
     id: "rescue",
-    name: "弱点急救",
+    name: trainingModeLabels.get("rescue"),
     detail: "选择一个键、组合、手指或区域做 2–5 分钟聚焦",
     icon: LifeBuoy
   },
   {
     id: "common-english",
-    name: "常用英文",
+    name: trainingModeLabels.get("common-english"),
     detail: "按频率与难度组合自然单词和短句",
     icon: Languages
   },
   {
     id: "pseudowords",
-    name: "伪词练习",
+    name: trainingModeLabels.get("pseudowords"),
     detail: "可读但明确标注的英文形态伪词",
     icon: Fingerprint
   },
   {
     id: "data-entry",
-    name: "数字与数据录入",
+    name: trainingModeLabels.get("data-entry"),
     detail: "虚构日期、时间、金额、百分比和表格片段",
     icon: Hash
   },
   {
     id: "punctuation",
-    name: "标点与符号",
+    name: trainingModeLabels.get("punctuation"),
     detail: "英文标点和可选的代码符号",
     icon: TextCursorInput
   },
   {
     id: "shift",
-    name: "大小写 / Shift",
+    name: trainingModeLabels.get("shift"),
     detail: "首字母、缩写、标识符与 Shift 侧别",
     icon: CaseSensitive
   },
   {
     id: "source-code",
-    name: "源代码",
+    name: trainingModeLabels.get("source-code"),
     detail: "原创 JavaScript、TypeScript、JSON、HTML 与 CSS",
     icon: Braces
   },
   {
     id: "custom",
-    name: "自定义文本",
+    name: trainingModeLabels.get("custom"),
     detail: "粘贴或导入受支持纯文本；由本机解析",
     icon: Upload
   },
   {
     id: "long-form",
-    name: "书籍 / 长文",
+    name: trainingModeLabels.get("long-form"),
     detail: "原创或公共领域节选；导入的长文可保存阅读位置",
     icon: FileText
   },
   {
     id: "calibration",
-    name: "重新校准",
+    name: trainingModeLabels.get("calibration"),
     detail: "分区域取样，更新建议起点",
     icon: Sigma
   }
@@ -298,6 +299,17 @@ export function TrainPage() {
   const [rescueDuration, setRescueDuration] = useState(3);
   const [rescueError, setRescueError] = useState("");
   const layout = activeKeyboardLayout(bootstrap);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelTriggerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (traditionalOpen || rescueOpen || customOpen) {
+      panelRef.current
+        ?.querySelector<HTMLElement>(
+          ".traditional-panel h2, .rescue-panel h2, .custom-text-panel h2"
+        )
+        ?.focus();
+    }
+  }, [traditionalOpen, rescueOpen, customOpen]);
 
   const customTextsQuery = useQuery({
     queryKey: ["custom-texts"],
@@ -319,7 +331,15 @@ export function TrainPage() {
     setTraditionalOpen(panel === "traditional");
   };
 
-  const start = (mode: string) => {
+  const closePanels = () => {
+    setCustomOpen(false);
+    setRescueOpen(false);
+    setTraditionalOpen(false);
+    panelTriggerRef.current?.focus();
+  };
+
+  const start = (mode: string, trigger: HTMLButtonElement) => {
+    panelTriggerRef.current = trigger;
     if (mode === "custom") {
       closePanelsExcept("custom");
       return;
@@ -455,11 +475,11 @@ export function TrainPage() {
   };
 
   return (
-    <div className="page">
+    <div className="page" ref={panelRef}>
       <PageHeader
         eyebrow="训练"
         title="选择今天的训练方式"
-        description="十二种入口共享同一逐键事件、能力模型和保存管线。"
+        description="从智能课程开始，或选择你想练习的内容。"
       />
       <section className="training-controls panel">
         <SegmentedControl
@@ -481,29 +501,39 @@ export function TrainPage() {
             { value: "speed", label: "速度挑战" }
           ]}
         />
-        <fieldset className="filter-field">
-          <legend>可选范围</legend>
-          <div className="filter-chips">
-            {filters.map((filter) => (
-              <button
-                type="button"
-                key={filter}
-                aria-pressed={selectedFilters.has(filter)}
-                className={selectedFilters.has(filter) ? "is-active" : ""}
-                onClick={() =>
-                  setSelectedFilters((current) => {
-                    const next = new Set(current);
-                    if (next.has(filter)) next.delete(filter);
-                    else next.add(filter);
-                    return next;
-                  })
-                }
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <details className="scope-disclosure">
+          <summary>
+            练习范围{" "}
+            <span>
+              {selectedFilters.size
+                ? Array.from(selectedFilters).join(" · ")
+                : "全部键区 · 按需缩小范围"}
+            </span>
+          </summary>
+          <fieldset className="filter-field">
+            <legend>可选范围</legend>
+            <div className="filter-chips">
+              {filters.map((filter) => (
+                <button
+                  type="button"
+                  key={filter}
+                  aria-pressed={selectedFilters.has(filter)}
+                  className={selectedFilters.has(filter) ? "is-active" : ""}
+                  onClick={() =>
+                    setSelectedFilters((current) => {
+                      const next = new Set(current);
+                      if (next.has(filter)) next.delete(filter);
+                      else next.add(filter);
+                      return next;
+                    })
+                  }
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        </details>
       </section>
 
       {traditionalOpen ? (
@@ -513,13 +543,15 @@ export function TrainPage() {
               <p className="eyebrow">
                 <Keyboard size={15} />8 阶传统课程
               </p>
-              <h2 id="traditional-title">按顺序建立键区，再迁移到完整输入</h2>
+              <h2 id="traditional-title" tabIndex={-1}>
+                按顺序建立键区，再迁移到完整输入
+              </h2>
             </div>
             <button
               className="icon-button"
               type="button"
               aria-label="关闭传统课程"
-              onClick={() => setTraditionalOpen(false)}
+              onClick={closePanels}
             >
               <X size={17} />
             </button>
@@ -597,13 +629,13 @@ export function TrainPage() {
                 <LifeBuoy size={15} />
                 弱点急救
               </p>
-              <h2>定义一个 2–5 分钟聚焦目标</h2>
+              <h2 tabIndex={-1}>定义一个 2–5 分钟聚焦目标</h2>
             </div>
             <button
               className="icon-button"
               type="button"
               aria-label="关闭弱点急救"
-              onClick={() => setRescueOpen(false)}
+              onClick={closePanels}
             >
               <X size={17} />
             </button>
@@ -692,13 +724,15 @@ export function TrainPage() {
                 <Upload size={15} />
                 本地自定义文本
               </p>
-              <h2 id="custom-text-title">继续本地文本，或导入一份新内容</h2>
+              <h2 id="custom-text-title" tabIndex={-1}>
+                继续本地文本，或导入一份新内容
+              </h2>
             </div>
             <button
               className="icon-button"
               type="button"
               aria-label="关闭自定义文本"
-              onClick={() => setCustomOpen(false)}
+              onClick={closePanels}
             >
               <X size={17} />
             </button>
@@ -854,32 +888,62 @@ export function TrainPage() {
           </div>
         </section>
       ) : null}
-
-      <section className="mode-grid">
-        {modes.map((mode) => {
-          const Icon = mode.icon;
-          return (
-            <button
-              className="mode-card"
-              type="button"
-              key={mode.id}
-              onClick={() => start(mode.id)}
-            >
-              <span className="mode-card__icon">
-                <Icon size={21} />
-              </span>
-              <span>
-                <span className="mode-card__title">
-                  {mode.name}
-                  {"recommended" in mode && mode.recommended ? <small>推荐</small> : null}
-                </span>
-                <span className="mode-card__detail">{mode.detail}</span>
-              </span>
-              <ChevronRight className="mode-card__arrow" size={18} />
-            </button>
-          );
-        })}
-      </section>
+      {[
+        {
+          title: "跟着计划练",
+          detail: "让每轮练习有一个明确目标",
+          ids: ["smart", "traditional", "rescue"]
+        },
+        {
+          title: "选择练习内容",
+          detail: "把键区能力用到日常输入",
+          ids: [
+            "common-english",
+            "pseudowords",
+            "data-entry",
+            "punctuation",
+            "shift",
+            "source-code",
+            "custom",
+            "long-form",
+            "calibration"
+          ]
+        }
+      ].map((group) => (
+        <section className="mode-section" key={group.title} aria-label={group.title}>
+          <div className="panel-heading">
+            <h2>{group.title}</h2>
+            <p>{group.detail}</p>
+          </div>
+          <div className="mode-grid">
+            {modes
+              .filter((mode) => group.ids.includes(mode.id))
+              .map((mode) => {
+                const Icon = mode.icon;
+                return (
+                  <button
+                    className={`mode-card${mode.id === "smart" ? " mode-card--recommended" : ""}`}
+                    type="button"
+                    key={mode.id}
+                    onClick={(event) => start(mode.id, event.currentTarget)}
+                  >
+                    <span className="mode-card__icon">
+                      <Icon size={21} />
+                    </span>
+                    <span>
+                      <span className="mode-card__title">
+                        {mode.name}
+                        {"recommended" in mode && mode.recommended ? <small>推荐</small> : null}
+                      </span>
+                      <span className="mode-card__detail">{mode.detail}</span>
+                    </span>
+                    <ChevronRight className="mode-card__arrow" size={18} />
+                  </button>
+                );
+              })}
+          </div>
+        </section>
+      ))}
       <p className="safety-note">
         导入或粘贴内容时，请勿输入真实密码、API key、私钥、钱包助记词或恢复短语。
       </p>

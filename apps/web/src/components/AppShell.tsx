@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   BarChart3,
   CalendarDays,
@@ -12,6 +12,7 @@ import {
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import type { BootstrapData } from "../types";
+import { LoadingState } from "./ui";
 
 const navigation = [
   { to: "/", label: "今日", icon: CalendarDays, end: true },
@@ -49,7 +50,9 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
           </div>
         </header>
         <main id="main-content" ref={mainRef} tabIndex={-1}>
-          <Outlet context={{ bootstrap }} />
+          <Suspense fallback={<LoadingState label="正在打开页面…" />}>
+            <Outlet context={{ bootstrap }} />
+          </Suspense>
         </main>
       </div>
     );
@@ -97,7 +100,9 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
         </div>
       </aside>
       <main id="main-content" ref={mainRef} className="main-content" tabIndex={-1}>
-        <Outlet context={{ bootstrap }} />
+        <Suspense fallback={<LoadingState label="正在打开页面…" />}>
+          <Outlet context={{ bootstrap }} />
+        </Suspense>
       </main>
     </div>
   );

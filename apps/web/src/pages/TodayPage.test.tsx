@@ -13,7 +13,7 @@ import { TodayPage } from "./TodayPage";
 
 vi.mock("recharts", () => ({
   Area: () => null,
-  AreaChart: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  AreaChart: ({ children }: { children?: ReactNode }) => <svg>{children}</svg>,
   ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Tooltip: () => null,
   XAxis: () => null,
@@ -98,6 +98,7 @@ describe("TodayPage data accessibility", () => {
       ]
     });
 
+    fireEvent.click(await screen.findByText("查看本轮重点与依据"));
     expect(
       await screen.findByText(
         /组合 “ct” 有 42 个样本，短期准确率 94%，稳健短期 IKI 约 349 ms，比 45 WPM 目标节奏慢 31%，2 天未复测/u

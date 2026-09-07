@@ -381,8 +381,8 @@ test("data controls export real files and restore a validated JSON backup with a
     buffer: Buffer.from("{")
   });
   await expect(
-    page.getByRole("button", {
-      name: /无法读取 JSON 备份：文件内容不是有效 JSON。当前数据库未更改。/u
+    page.getByRole("alert").filter({
+      hasText: "无法读取所选备份。当前数据未改变；请选择有效的 SymType 备份后重试。"
     })
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "自动备份当前库并恢复" })).toHaveCount(0);

@@ -690,8 +690,8 @@ export function GamePage({ play = false }: { play?: boolean }) {
       <div className="page game-landing">
         <PageHeader
           eyebrow="Pineapple Breach"
-          title="菠萝公司的文字防线正在上线"
-          description="六关本地打字 campaign。剧情与字符串全部虚构，不包含真实攻击步骤或凭据。"
+          title="菠萝公司的文字防线"
+          description="六关打字挑战。剧情和字符串全部虚构。"
           action={
             resumableRunId ? (
               <button
@@ -704,6 +704,59 @@ export function GamePage({ play = false }: { play?: boolean }) {
             ) : undefined
           }
         />
+        <section className="game-start panel">
+          <div>
+            <SegmentedControl
+              label="难度"
+              value={difficulty}
+              onChange={setDifficulty}
+              options={[
+                { value: "standard", label: "Standard" },
+                { value: "hard", label: "Hard" },
+                { value: "adaptive", label: "Adaptive" }
+              ]}
+            />
+            <SegmentedControl
+              label="Run 规则"
+              value={runMode}
+              onChange={setRunMode}
+              options={[
+                { value: "campaign", label: "Campaign" },
+                { value: "hardcore", label: "Hardcore Run" }
+              ]}
+            />
+          </div>
+          <div className="rule-warning" data-hardcore={runMode === "hardcore"}>
+            <AlertTriangle size={19} />
+            <p>
+              {runMode === "hardcore" ? (
+                <>
+                  <strong>Hardcore：任一关失败，整个任务从第 1 关、零分、零警戒重新开始。</strong>{" "}
+                  已完成的个人最佳仍保留。
+                </>
+              ) : (
+                <>
+                  <strong>Campaign：失败时当前关从阶段 1、零分、零警戒重开。</strong>{" "}
+                  已通关前置关卡保持解锁。
+                </>
+              )}
+            </p>
+          </div>
+          {startError ? (
+            <p className="error-notice" role="alert">
+              {startError}
+            </p>
+          ) : null}
+          <button
+            className="button button--primary button--large"
+            type="button"
+            disabled={starting}
+            onClick={() => void startCampaign()}
+          >
+            {starting ? "正在准备任务…" : "启动新任务"}
+            <ArrowRight size={18} />
+          </button>
+        </section>
         <section className="game-hero panel">
           <div>
             <p className="game-kicker">
@@ -876,60 +929,6 @@ export function GamePage({ play = false }: { play?: boolean }) {
               })}
             </div>
           )}
-        </section>
-
-        <section className="game-start panel">
-          <div>
-            <SegmentedControl
-              label="难度"
-              value={difficulty}
-              onChange={setDifficulty}
-              options={[
-                { value: "standard", label: "Standard" },
-                { value: "hard", label: "Hard" },
-                { value: "adaptive", label: "Adaptive" }
-              ]}
-            />
-            <SegmentedControl
-              label="Run 规则"
-              value={runMode}
-              onChange={setRunMode}
-              options={[
-                { value: "campaign", label: "Campaign" },
-                { value: "hardcore", label: "Hardcore Run" }
-              ]}
-            />
-          </div>
-          <div className="rule-warning" data-hardcore={runMode === "hardcore"}>
-            <AlertTriangle size={19} />
-            <p>
-              {runMode === "hardcore" ? (
-                <>
-                  <strong>Hardcore：任一关失败，整个任务从第 1 关、零分、零警戒重新开始。</strong>{" "}
-                  已完成的个人最佳仍保留。
-                </>
-              ) : (
-                <>
-                  <strong>Campaign：失败时当前关从阶段 1、零分、零警戒重开。</strong>{" "}
-                  已通关前置关卡保持解锁。
-                </>
-              )}
-            </p>
-          </div>
-          {startError ? (
-            <p className="error-notice" role="alert">
-              {startError}
-            </p>
-          ) : null}
-          <button
-            className="button button--primary button--large"
-            type="button"
-            disabled={starting}
-            onClick={() => void startCampaign()}
-          >
-            {starting ? "正在准备任务…" : "启动新任务"}
-            <ArrowRight size={18} />
-          </button>
         </section>
       </div>
     );

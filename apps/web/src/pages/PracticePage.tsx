@@ -42,6 +42,7 @@ import { strategyForLocalDate } from "../experiment";
 import { usePersistentEvents } from "../hooks/usePersistentEvents";
 import { useSessionNavigationGuard } from "../hooks/useSessionNavigationGuard";
 import { activeKeyboardLayout, focusCharactersForScopes } from "../keyboard";
+import { trainingModeLabels } from "../training-labels";
 import type { BootstrapData, SessionSummary, StoredEvent } from "../types";
 
 type Phase = "warmup" | "focus" | "retest" | "transfer" | "fluency" | "explore";
@@ -783,20 +784,20 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           返回{kind === "test" ? "测试" : "训练"}
         </button>
         <section className="ready-card">
-          <p className="eyebrow">{kind === "test" ? "正式打字测试" : "自适应微组"}</p>
+          <p className="eyebrow">{kind === "test" ? "正式打字测试" : "准备练习"}</p>
           <h1>
             {kind === "test"
               ? `${Math.round(durationMs / 1000)} 秒测试`
               : mode === "smart"
                 ? "今日智能课程"
-                : mode.replaceAll("-", " ")}
+                : (trainingModeLabels.get(mode) ?? "练习")}
           </h1>
           <p>
             {kind === "test"
               ? "测试单独标记；游戏和练习成绩不会进入正式测试排名。"
               : mode === "calibration"
                 ? `基线会按所选类别轮换取样，并至少记录 ${durationMinutes} 分钟有效活动时间；暂停不计时。`
-                : "当前可见微组开始后不会改写。每个边界会用刚产生的数据重排下一组。"}
+                : "按自己的节奏完成眼前这一组，下一组会自动接上。"}
           </p>
           {kind === "training" && mode !== "calibration" ? (
             <div className="focus-summary" aria-label="本轮训练计划">
@@ -811,14 +812,18 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
               <Database size={19} />
               <span>
                 <strong>安全保存到本机</strong>
-                <small>24 个事件或最迟 3 秒自动保存到本机</small>
+                <small>练习记录会自动保存到这台电脑</small>
               </span>
             </div>
             <div>
               <Headphones size={19} />
               <span>
-                <strong>点击后解锁声音</strong>
-                <small>兼容 Safari 用户手势限制</small>
+                <strong>{bootstrap.settings.soundEnabled ? "声音反馈已开启" : "安静练习"}</strong>
+                <small>
+                  {bootstrap.settings.soundEnabled
+                    ? "开始后播放你选择的声音"
+                    : "可在设置中开启声音反馈"}
+                </small>
               </span>
             </div>
           </div>
@@ -859,7 +864,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
             )}
           </button>
           <p className="keyboard-hint">
-            开始后直接键入；Esc 退出，空格/Enter 从暂停继续。IME 组合中的按键不会记录。
+            切换到英文输入后直接键入；Esc 打开退出确认，暂停后可用空格或 Enter 继续。
           </p>
         </section>
       </div>
@@ -1164,6 +1169,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           <TypingSurface
             ref={surfaceRef}
             target={block.target_text}
+            blockIdentity={block.id}
             mode={
               mode === "calibration" && block.block_type.startsWith("calibration-")
                 ? block.block_type

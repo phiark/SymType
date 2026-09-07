@@ -304,7 +304,20 @@ export function SettingsPage() {
         eyebrow="设置"
         title="让 SymType 适合你的手与节奏"
         description="设置、映射与算法参数都安全保存在这台电脑。"
-        action={
+      />
+      <div className="settings-toolbar">
+        <div className="settings-search">
+          <Search size={18} />
+          <input
+            type="search"
+            placeholder="搜索设置，例如 Shift、声音、备份…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label="搜索设置"
+          />
+        </div>
+        <div className="settings-save">
+          <span>{saved ? "更改已保存到本机" : "有未保存的更改"}</span>{" "}
           <button
             className="button button--primary"
             type="button"
@@ -328,17 +341,7 @@ export function SettingsPage() {
               "保存更改"
             )}
           </button>
-        }
-      />
-      <div className="settings-search">
-        <Search size={18} />
-        <input
-          type="search"
-          placeholder="搜索设置，例如 Shift、声音、备份…"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          aria-label="搜索设置"
-        />
+        </div>
       </div>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {search.trim()
@@ -374,6 +377,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 className={activeSection === id ? "is-active" : ""}
+                aria-current={activeSection === id ? "location" : undefined}
                 key={id}
                 onClick={() => {
                   setActiveSection(id);
@@ -418,7 +422,7 @@ export function SettingsPage() {
                   </div>
                   <ToggleRow
                     label="减少动态效果"
-                    detail="尊重 prefers-reduced-motion，并关闭非必要移动"
+                    detail="减少动画和界面移动"
                     checked={settings.reducedMotion}
                     onChange={(value) => patch("reducedMotion", value)}
                   />
@@ -489,7 +493,7 @@ export function SettingsPage() {
                   <SlidersHorizontal size={20} />
                   <div>
                     <h2>输入与训练</h2>
-                    <p>错误处理不会改变已经显示的微组。</p>
+                    <p>按你的习惯设置纠错方式和练习节奏。</p>
                   </div>
                 </div>
                 <div className="settings-list">
@@ -565,13 +569,13 @@ export function SettingsPage() {
                   <Volume2 size={20} />
                   <div>
                     <h2>声音</h2>
-                    <p>复用一个 AudioContext，在本机实时合成短 envelope。</p>
+                    <p>为击键和完成练习提供轻量声音反馈。</p>
                   </div>
                 </div>
                 <div className="settings-list">
                   <ToggleRow
                     label="声音反馈"
-                    detail="Safari 需要在点击后解锁"
+                    detail="为击键、错误和完成提供声音提示"
                     checked={settings.soundEnabled}
                     onChange={(value) => patch("soundEnabled", value)}
                   />
@@ -627,7 +631,7 @@ export function SettingsPage() {
                   <div className="setting-row">
                     <span>
                       <strong>试听</strong>
-                      <small>点击同时尝试解锁 Safari 音频</small>
+                      <small>试听当前音色与音量</small>
                     </span>
                     <button
                       className="button button--secondary"
@@ -767,9 +771,7 @@ export function SettingsPage() {
                     </button>
                   </>
                 ) : (
-                  <p className="inline-notice">
-                    内置预设只读。先复制，再逐键修改；C、B、N、M、数字和 Shift 边界都有回归测试。
-                  </p>
+                  <p className="inline-notice">内置预设可直接使用；复制后可逐键调整建议手指。</p>
                 )}
               </section>
             ) : null}
@@ -779,7 +781,7 @@ export function SettingsPage() {
                   <Target size={20} />
                   <div>
                     <h2>目标与算法</h2>
-                    <p>阈值和权重是可检验的工程假设，不是科学最优常数。</p>
+                    <p>根据你的水平调整目标和进阶条件，默认值可作为起点。</p>
                   </div>
                 </div>
                 <div className="settings-list">
@@ -910,7 +912,7 @@ export function SettingsPage() {
                   <Database size={20} />
                   <div>
                     <h2>数据与备份</h2>
-                    <p>SQLite 是权威数据源；CSV 仅用于分析，JSON/SQLite 用于备份。</p>
+                    <p>用 CSV 分析练习记录，用 JSON 或 SQLite 备份完整档案。</p>
                   </div>
                 </div>
                 <div className="data-location">
@@ -944,7 +946,7 @@ export function SettingsPage() {
                     <Download size={20} />
                     <span>
                       <strong>{downloadingSqlite ? "正在生成 SQLite…" : "下载 SQLite 备份"}</strong>
-                      <small>带本页安全令牌的一致性快照，可用于完整恢复</small>
+                      <small>保存完整训练档案，可在需要时恢复</small>
                     </span>
                   </button>
                   <button

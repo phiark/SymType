@@ -26,8 +26,8 @@
   --shadow-md: 0 18px 50px rgb(23 28 24 / 10%), 0 3px 10px rgb(23 28 24 / 5%);
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 18px;
-  --sidebar-width: 220px;
+  --radius-lg: 16px;
+  --sidebar-width: 200px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -219,7 +219,7 @@ p {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 48px;
+  margin-top: 40px;
 }
 .sidebar nav a {
   display: flex;
@@ -284,21 +284,21 @@ p {
 .page {
   width: min(1240px, 100%);
   margin: 0 auto;
-  padding: 48px 48px 80px;
+  padding: 32px 40px 64px;
 }
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 32px;
-  margin-bottom: 36px;
+  margin-bottom: 24px;
 }
 .page-header > div:first-child {
   max-width: 720px;
 }
 .page-header h1 {
   margin: 4px 0 9px;
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(26px, 2.5vw, 34px);
   line-height: 1.12;
   letter-spacing: -0.045em;
 }
@@ -821,8 +821,8 @@ p {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 30px;
-  padding: 36px;
+  gap: 32px;
+  padding: 24px 32px;
 }
 .today-hero__main h2 {
   margin: 0 0 10px;
@@ -849,7 +849,7 @@ p {
 }
 .goal-ring {
   --progress: 0deg;
-  width: 142px;
+  width: 120px;
   aspect-ratio: 1;
   padding: 9px;
   border-radius: 50%;
@@ -892,7 +892,7 @@ p {
 }
 .quick-duration button {
   min-width: 78px;
-  min-height: 58px;
+  min-height: 48px;
   display: grid;
   place-content: center;
   gap: 1px;
@@ -3459,6 +3459,164 @@ td strong {
 .backup-list > p {
   color: var(--text-faint);
   font-size: 9px;
+}
+
+/* Product task hierarchy: defaults first, explanations on demand. */
+.recommendation-detail {
+  margin: 0 0 16px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.recommendation-detail summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 12px 0;
+}
+.recommendation-detail p {
+  margin: 8px 0 0;
+}
+.today-intent {
+  display: inline-block;
+  margin: 0 24px 0 0;
+  vertical-align: middle;
+}
+.today-intent + .button {
+  vertical-align: bottom;
+}
+.scope-disclosure {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+}
+.scope-disclosure summary {
+  padding: 16px 0 0;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.scope-disclosure summary span {
+  margin-left: 12px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+.scope-disclosure .filter-field {
+  margin-top: 16px;
+}
+.mode-section {
+  margin-top: 24px;
+}
+.mode-section > .panel-heading {
+  padding: 0;
+  margin-bottom: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.mode-section > .panel-heading p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.mode-card--recommended {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.mode-section .mode-card {
+  box-shadow: none;
+}
+.mode-section .mode-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+.chart-loading {
+  padding: 32px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.settings-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  margin: -12px 0 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.settings-toolbar .settings-search {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.settings-save {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.settings-save > span {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.settings-save .button {
+  min-width: 104px;
+}
+.settings-nav {
+  top: 88px;
+}
+.settings-section {
+  scroll-margin-top: 88px;
+}
+.settings-page input,
+.settings-page button,
+.settings-page select,
+.settings-page summary {
+  scroll-margin-top: 96px;
+}
+.game-landing .game-start {
+  margin-bottom: 24px;
+}
+.game-landing .game-hero {
+  padding: 24px 32px;
+}
+.game-landing .game-hero h2 {
+  font-size: 25px;
+}
+@media (max-width: 1120px) {
+  .settings-save > span {
+    display: none;
+  }
+  .today-intent {
+    display: block;
+    margin: 0 0 16px;
+  }
+}
+@media (max-width: 820px) {
+  .settings-toolbar {
+    top: 64px;
+    gap: 8px;
+  }
+  .settings-section {
+    scroll-margin-top: 152px;
+  }
+  .settings-page input,
+  .settings-page button,
+  .settings-page select,
+  .settings-page summary {
+    scroll-margin-top: 160px;
+  }
+  .settings-toolbar input {
+    width: 100%;
+  }
+  .settings-save .button {
+    min-width: 88px;
+    padding-inline: 8px;
+  }
+  .scope-disclosure summary span {
+    display: block;
+    margin: 8px 0;
+  }
 }
 
 @media (max-width: 1120px) {
