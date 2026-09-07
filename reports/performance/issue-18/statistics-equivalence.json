@@ -1,0 +1,11 @@
+{
+  "fixture": "100k",
+  "baselineCommit": "481a2cb",
+  "candidateCommit": "7df81ec",
+  "equalFullReport": true,
+  "beforeSha256": "3e61cdd7f6a30fd5d35f1fbf290bcd8fedb91234aba688a4c2153e3ad8f9911e",
+  "afterSha256": "3e61cdd7f6a30fd5d35f1fbf290bcd8fedb91234aba688a4c2153e3ad8f9911e",
+  "baselineColdProfileMs": 1007.94,
+  "candidateColdProfileMs": 1099.5,
+  "method": "One direct database call per profile; warm-up and machine noise are not controlled. No cold-load speedup claim."
+}

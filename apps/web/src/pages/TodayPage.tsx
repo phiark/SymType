@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Clock3, Flame, Gauge, Sparkles } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { api } from "../api";
 import { EmptyState, ErrorState, LoadingState, MetricCard, PageHeader } from "../components/ui";
 import type { BootstrapData, DashboardData } from "../types";
+
+const TodayTrendChart = lazy(() => import("../components/TodayTrendChart"));
 
 type TrainingIntent = "accuracy" | "balanced" | "speed";
 
@@ -72,12 +73,7 @@ export function TodayPage() {
   );
   if (query.isLoading) return <LoadingState />;
   if (query.isError || !query.data)
-    return (
-      <ErrorState
-        message={query.error instanceof Error ? query.error.message : "无法读取今日训练。"}
-        onRetry={() => void query.refetch()}
-      />
-    );
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   const data = query.data;
   const practicedMinutesExact = data.today.active_ms / 60_000;
   const practicedMinutes = Math.floor(practicedMinutesExact);
@@ -104,7 +100,7 @@ export function TodayPage() {
           day: "numeric",
           weekday: "long"
         }).format(new Date())}
-        description="短而明确的一轮，比盲目堆字符更有价值。"
+        description="选一轮练习，留下一点进步。"
       />
       <section className="today-hero">
         <div className="today-hero__main">
@@ -128,12 +124,13 @@ export function TodayPage() {
               <Sparkles size={15} />
               系统建议
             </p>
-            <h2>
-              {goalComplete
-                ? "今日目标已完成，适合做一次轻量保留复测。"
-                : "先守住动作，再把弱点带回自然文本。"}
-            </h2>
-            <p>{recommendation(data.weaknesses, data.goal.target_wpm)}</p>
+            <h2>{goalComplete ? "今日目标已完成" : `今天再练 ${remainingGoal} 分钟`}</h2>
+            <details className="recommendation-detail">
+              <summary>
+                {data.weaknesses.length ? "查看本轮重点与依据" : "从短训练开始，逐步找到你的重点"}
+              </summary>
+              <p>{recommendation(data.weaknesses, data.goal.target_wpm)}</p>
+            </details>
             <fieldset className="today-intent">
               <legend>本轮训练倾向</legend>
               <div className="segmented-control">
@@ -225,33 +222,15 @@ export function TodayPage() {
                 aria-label="最近十四日净 WPM 趋势图"
                 aria-describedby="today-trend-summary"
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.trend}>
-                    <defs>
-                      <linearGradient id="todayTrend" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stopColor="var(--accent)" stopOpacity={0.28} />
-                        <stop offset="1" stopColor="var(--accent)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="local_date"
-                      tickFormatter={(value: string) => value.slice(5)}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis hide domain={[0, "auto"]} />
-                    <Tooltip
-                      formatter={(value) => [`${Math.round(Number(value))} WPM`, "净速度"]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="net_wpm"
-                      stroke="var(--accent)"
-                      strokeWidth={2.2}
-                      fill="url(#todayTrend)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <Suspense
+                  fallback={
+                    <p className="chart-loading" role="status">
+                      正在绘制趋势…
+                    </p>
+                  }
+                >
+                  <TodayTrendChart trend={data.trend} />
+                </Suspense>
               </div>
             </>
           ) : (

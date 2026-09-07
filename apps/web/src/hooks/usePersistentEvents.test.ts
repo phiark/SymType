@@ -176,7 +176,10 @@ describe("usePersistentEvents", () => {
     });
 
     expect(result.current.pendingCount).toBe(1);
-    expect(onError).toHaveBeenCalledWith("network unavailable");
+    expect(onError).toHaveBeenCalledWith(
+      "本次更改尚未保存。已保存的数据未受影响。请保留当前页面并重试。 尚未保存的按键仍保留在当前页面；重试会复用同一批次。"
+    );
+    expect(onError).not.toHaveBeenCalledWith(expect.stringContaining("network unavailable"));
     const failedBody = apiMocks.post.mock.calls[0]?.[1] as {
       batchId: string;
       events: StoredEvent[];

@@ -15,7 +15,7 @@ import {
   SYMMETRIC_LAYOUT,
   type KeyDefinition
 } from "@symtype/shared";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { LogOut, Pause, Play, RotateCcw } from "lucide-react";
 
 import { soundEngine } from "../audio";
 import type { AppSettings, StoredEvent } from "../types";
@@ -45,6 +45,7 @@ export interface TypingSurfaceHandle {
 
 interface TypingSurfaceProps {
   target: string;
+  blockIdentity?: string;
   mode: string;
   settings: AppSettings;
   layout?: readonly KeyDefinition[];
@@ -62,7 +63,10 @@ interface TypingSurfaceProps {
 interface GlyphResult {
   actual: string;
   correct: boolean;
+  corrected: boolean;
 }
+
+type GlyphState = "current" | "untouched" | "correct" | "incorrect" | "corrected";
 
 function getCharacterClass(character: string): string {
   if (/[a-z]/u.test(character)) return "lowercase";
@@ -70,6 +74,15 @@ function getCharacterClass(character: string): string {
   if (/\d/u.test(character)) return "digit";
   if (/\s/u.test(character)) return "whitespace";
   return "symbol";
+}
+
+function glyphAccessibilityLabel(character: string, state: GlyphState, actual?: string): string {
+  const characterLabel = spokenGlyph(character);
+  if (state === "current") return `${characterLabel}，当前待输入`;
+  if (state === "untouched") return `${characterLabel}，未输入`;
+  if (state === "correct") return `${characterLabel}，已正确输入`;
+  if (state === "corrected") return `${characterLabel}，已改正`;
+  return `${characterLabel}，输入错误${actual ? `，实际输入 ${spokenGlyph(actual)}` : ""}`;
 }
 
 function shiftSideFrom(set: ReadonlySet<string>): "left" | "right" | "both" | "none" {
@@ -88,6 +101,13 @@ function visibleGlyph(character: string): string {
   return character;
 }
 
+function spokenGlyph(character: string): string {
+  if (character === " ") return "空格";
+  if (character === "\n") return "换行";
+  if (character === "\t") return "制表符";
+  return character;
+}
+
 function stableWindowWpm(ikis: readonly number[]): number {
   if (ikis.length < 5) return 0;
   const sorted = [...ikis].sort((left, right) => left - right);
@@ -103,6 +123,7 @@ export const TypingSurface = memo(
   forwardRef<TypingSurfaceHandle, TypingSurfaceProps>(function TypingSurface(
     {
       target,
+      blockIdentity,
       mode,
       settings,
       layout = SYMMETRIC_LAYOUT,
@@ -119,6 +140,8 @@ export const TypingSurface = memo(
     forwardedRef
   ) {
     const surfaceRef = useRef<HTMLDivElement>(null);
+    const pauseOverlayRef = useRef<HTMLDivElement>(null);
+    const pauseContinueRef = useRef<HTMLButtonElement>(null);
     const startedAtRef = useRef(0);
     const pausedAtRef = useRef(0);
     const pausedTotalRef = useRef(0);
@@ -275,8 +298,8 @@ export const TypingSurface = memo(
 
     useEffect(() => {
       reset();
-      // Target boundaries intentionally reset the transient surface; persisted sequence is external.
-    }, [reset, target]);
+      // Reset at persisted block boundaries even when generated text repeats; keep focus mounted.
+    }, [blockIdentity, reset, target]);
 
     useEffect(() => {
       const surface = surfaceRef.current;
@@ -301,6 +324,11 @@ export const TypingSurface = memo(
       const timer = window.setInterval(() => setClockMs(performance.now()), 500);
       return () => window.clearInterval(timer);
     }, []);
+
+    useEffect(() => {
+      if (!paused) return;
+      scheduleTransient(() => pauseContinueRef.current?.focus(), 0);
+    }, [paused, scheduleTransient]);
 
     useEffect(() => {
       const previous = lastProgressReportRef.current;
@@ -393,6 +421,7 @@ export const TypingSurface = memo(
       if (expected === undefined) return;
       const actual = event.key === "Enter" ? "\n" : event.key === "Tab" ? "\t" : event.key;
       const isCorrect = actual === expected;
+      const isCorrection = backspaceCountRef.current > 0;
       const clientTime = performance.now();
       setClockMs(clientTime);
       const wasUnstarted = startedAtRef.current === 0;
@@ -423,7 +452,7 @@ export const TypingSurface = memo(
           altGraph: event.getModifierState("AltGraph")
         },
         isCorrect,
-        isCorrection: backspaceCountRef.current > 0,
+        isCorrection,
         backspaceCount: backspaceCountRef.current,
         ikiMs: rawIki,
         featureChar: expected,
@@ -482,7 +511,10 @@ export const TypingSurface = memo(
 
       const nextPosition = position + 1;
       setPosition(nextPosition);
-      setResults((current) => [...current, { actual, correct: isCorrect }]);
+      setResults((current) => [
+        ...current,
+        { actual, correct: isCorrect, corrected: isCorrection && isCorrect }
+      ]);
       if (nextPosition >= target.length) {
         completingRef.current = true;
         const finalProgress: TypingProgress = {
@@ -586,10 +618,22 @@ export const TypingSurface = memo(
             {Array.from(target).map((character, index) => {
               const result = results[index];
               const current = index === position;
+              const state: GlyphState = result
+                ? result.corrected
+                  ? "corrected"
+                  : result.correct
+                    ? "correct"
+                    : "incorrect"
+                : current
+                  ? "current"
+                  : "untouched";
               return (
                 <span
-                  className={`typing-glyph${result ? (result.correct ? " is-correct" : " is-wrong") : ""}${current ? " is-current" : ""}`}
+                  className={`typing-glyph${result ? (result.correct ? " is-correct" : " is-wrong") : ""}${result?.corrected ? " is-corrected" : ""}${current ? " is-current" : ""}`}
                   data-actual={result && !result.correct ? visibleGlyph(result.actual) : undefined}
+                  data-state={state}
+                  aria-current={current ? "true" : undefined}
+                  aria-label={glyphAccessibilityLabel(character, state, result?.actual)}
                   key={`${index}-${character}`}
                 >
                   {visibleGlyph(character)}
@@ -598,15 +642,68 @@ export const TypingSurface = memo(
             })}
           </div>
           {paused ? (
-            <button className="pause-overlay" type="button" onClick={() => setPauseState(false)}>
-              <Play size={22} /> 继续训练
-            </button>
+            <div
+              ref={pauseOverlayRef}
+              className="pause-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="pause-overlay-title"
+              aria-describedby="pause-overlay-description"
+              onKeyDown={(event) => {
+                // The dialog lives inside the typing surface. Keep button activation from bubbling
+                // into the surface's paused Enter/Space shortcut.
+                event.stopPropagation();
+                if (event.key === "Escape" && onExitRequest) {
+                  event.preventDefault();
+                  onExitRequest();
+                  return;
+                }
+                if (event.key !== "Tab") return;
+                const controls = Array.from(
+                  pauseOverlayRef.current?.querySelectorAll<HTMLButtonElement>(
+                    "button:not(:disabled)"
+                  ) ?? []
+                );
+                if (!controls.length) return;
+                event.preventDefault();
+                const currentIndex = Math.max(
+                  0,
+                  controls.indexOf(document.activeElement as HTMLButtonElement)
+                );
+                const direction = event.shiftKey ? -1 : 1;
+                controls[(currentIndex + direction + controls.length) % controls.length]?.focus();
+              }}
+            >
+              <div className="pause-overlay__content">
+                <strong id="pause-overlay-title">训练已暂停</strong>
+                <span id="pause-overlay-description">计时已停止。可继续，或打开安全退出确认。</span>
+                <div className="pause-overlay__actions">
+                  <button
+                    ref={pauseContinueRef}
+                    className="button button--primary"
+                    type="button"
+                    onClick={() => setPauseState(false)}
+                  >
+                    <Play size={18} /> 继续训练
+                  </button>
+                  {onExitRequest ? (
+                    <button
+                      className="button button--secondary"
+                      type="button"
+                      onClick={onExitRequest}
+                    >
+                      <LogOut size={18} /> 退出
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           ) : null}
           <span className="sr-only" id="typing-surface-status" aria-live="polite">
             {paused
               ? "训练已暂停。"
               : lastWrong
-                ? `输入错误；当前目标字符是 ${visibleGlyph(target[position] ?? "")}。`
+                ? `输入错误；当前目标字符是 ${spokenGlyph(target[position] ?? "")}。`
                 : ""}
           </span>
         </div>

@@ -21,6 +21,7 @@ describe("AppShell keyboard navigation", () => {
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("scrollTo", vi.fn());
 
     render(
       <MemoryRouter initialEntries={["/"]}>
@@ -51,6 +52,7 @@ describe("AppShell keyboard navigation", () => {
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("scrollTo", vi.fn());
 
     render(
       <MemoryRouter initialEntries={["/train/session"]}>
@@ -64,5 +66,6 @@ describe("AppShell keyboard navigation", () => {
 
     expect(screen.getByLabelText("SymType 专注模式")).toBeVisible();
     expect(screen.queryByRole("link", { name: /SymType/u })).not.toBeInTheDocument();
+    expect(screen.queryByText(/SQLite/u)).not.toBeInTheDocument();
   });
 });

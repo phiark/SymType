@@ -96,6 +96,7 @@ test("100k fixture supports Today, a completed course, and populated Analytics",
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("button", { name: /开始今日训练/u })).toBeVisible();
+  await page.locator("summary").filter({ hasText: "查看本轮重点与依据" }).click();
   await expect(page.getByText(/个样本/u).first()).toBeVisible();
   const todayRenderMs = performance.now() - todayStartedAt;
 
@@ -132,7 +133,7 @@ test("100k fixture supports Today, a completed course, and populated Analytics",
   }
 
   await expect(page.getByRole("heading", { name: "这一轮完成了" })).toBeVisible();
-  await expect(page.getByText(/已写入本机 SQLite/u)).toBeVisible();
+  await expect(page.getByText(/已安全保存到这台电脑/u)).toBeVisible();
   expect(completion?.saved).toBe(true);
   expect(completion?.summary.characters).toBeGreaterThan(0);
   const courseCompleteMs = performance.now() - courseStartedAt;

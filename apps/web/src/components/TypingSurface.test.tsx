@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createRef, Profiler, useCallback, useState, type ProfilerOnRenderCallback } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -23,6 +23,7 @@ function renderSurface(
     settings?: Partial<AppSettings>;
     onProgress?: (progress: TypingProgress) => void;
     onEvent?: (event: Omit<StoredEvent, "sequence">) => boolean | void;
+    onExitRequest?: () => void;
     onPauseChange?: (paused: boolean) => void;
   } = {}
 ) {
@@ -42,6 +43,7 @@ function renderSurface(
       onEvent={onEvent}
       onComplete={onComplete}
       onProgress={onProgress}
+      {...(options.onExitRequest ? { onExitRequest: options.onExitRequest } : {})}
       {...(options.onPauseChange ? { onPauseChange: options.onPauseChange } : {})}
     />
   );
@@ -56,6 +58,114 @@ function renderSurface(
 }
 
 describe("TypingSurface keyboard event boundary", () => {
+  it("resets repeated target content at a new block identity without remounting or losing focus", () => {
+    const onEvent = vi.fn();
+    const onComplete = vi.fn();
+    const onExitRequest = vi.fn();
+    const view = render(
+      <TypingSurface
+        target="a"
+        blockIdentity="block-1"
+        mode="smart"
+        settings={{ ...testSettings, keyboardVisible: false }}
+        active
+        onEvent={onEvent}
+        onComplete={onComplete}
+        onExitRequest={onExitRequest}
+      />
+    );
+    const firstSurface = screen.getByRole("textbox", { name: "打字练习输入区" });
+    firstSurface.focus();
+    fireEvent.keyDown(firstSurface, { key: "a", code: "KeyA" });
+    expect(screen.getByText("1/1")).toBeVisible();
+
+    view.rerender(
+      <TypingSurface
+        target="a"
+        blockIdentity="block-2"
+        mode="smart"
+        settings={{ ...testSettings, keyboardVisible: false }}
+        active
+        onEvent={onEvent}
+        onComplete={onComplete}
+        onExitRequest={onExitRequest}
+      />
+    );
+
+    const nextSurface = screen.getByRole("textbox", { name: "打字练习输入区" });
+    expect(nextSurface).toBe(firstSurface);
+    expect(nextSurface).toHaveFocus();
+    expect(screen.getByText("0/1")).toBeVisible();
+    expect(nextSurface.querySelector(".typing-glyph.is-current")).toHaveTextContent("a");
+
+    fireEvent.keyDown(nextSurface, { key: "Escape", code: "Escape" });
+    expect(onExitRequest).toHaveBeenCalledOnce();
+  });
+
+  it("keeps current, untouched, incorrect, corrected, and correct glyph states distinct", () => {
+    const { surface } = renderSurface("ab");
+    const glyphs = surface.querySelectorAll<HTMLElement>(".typing-glyph");
+
+    expect(glyphs[0]).toHaveAttribute("data-state", "current");
+    expect(glyphs[0]).toHaveAttribute("aria-current", "true");
+    expect(glyphs[0]).toHaveAttribute("aria-label", "a，当前待输入");
+    expect(glyphs[1]).toHaveAttribute("data-state", "untouched");
+    expect(glyphs[1]).toHaveAttribute("aria-label", "b，未输入");
+
+    fireEvent.keyDown(surface, { key: "x", code: "KeyX" });
+    expect(glyphs[0]).toHaveAttribute("data-state", "incorrect");
+    expect(glyphs[0]).toHaveAttribute("aria-label", "a，输入错误，实际输入 x");
+    expect(glyphs[1]).toHaveAttribute("data-state", "current");
+
+    fireEvent.keyDown(surface, { key: "Backspace", code: "Backspace" });
+    fireEvent.keyDown(surface, { key: "a", code: "KeyA" });
+    expect(glyphs[0]).toHaveAttribute("data-state", "corrected");
+    expect(glyphs[0]).toHaveClass("is-correct", "is-corrected");
+    expect(glyphs[0]).toHaveAttribute("aria-label", "a，已改正");
+    expect(glyphs[1]).toHaveAttribute("data-state", "current");
+  });
+
+  it("announces whitespace glyphs by meaning instead of their visual marks", () => {
+    const { surface } = renderSurface(" \n\t");
+    const glyphs = surface.querySelectorAll<HTMLElement>(".typing-glyph");
+
+    expect(glyphs[0]).toHaveAttribute("aria-label", "空格，当前待输入");
+    expect(glyphs[1]).toHaveAttribute("aria-label", "换行，未输入");
+    expect(glyphs[2]).toHaveAttribute("aria-label", "制表符，未输入");
+
+    fireEvent.keyDown(surface, { key: "x", code: "KeyX" });
+    expect(glyphs[0]).toHaveAttribute("aria-label", "空格，输入错误，实际输入 x");
+  });
+
+  it("keeps pause actions keyboard-contained and delegates exit to the guarded owner", async () => {
+    const onExitRequest = vi.fn();
+    const { surface } = renderSurface("ab", { onExitRequest });
+
+    fireEvent.click(screen.getByRole("button", { name: "暂停" }));
+    const dialog = screen.getByRole("dialog", { name: "训练已暂停" });
+    const continueButton = within(dialog).getByRole("button", { name: "继续训练" });
+    const exitButton = within(dialog).getByRole("button", { name: "退出" });
+    await waitFor(() => expect(continueButton).toHaveFocus());
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+
+    fireEvent.keyDown(continueButton, { key: "Tab" });
+    expect(exitButton).toHaveFocus();
+    fireEvent.keyDown(exitButton, { key: "Tab" });
+    expect(continueButton).toHaveFocus();
+    fireEvent.keyDown(continueButton, { key: "Tab", shiftKey: true });
+    expect(exitButton).toHaveFocus();
+
+    fireEvent.keyDown(exitButton, { key: "Enter" });
+    expect(dialog).toBeVisible();
+    fireEvent.click(exitButton);
+    expect(onExitRequest).toHaveBeenCalledTimes(1);
+    expect(dialog).toBeVisible();
+
+    fireEvent.click(continueButton);
+    await waitFor(() => expect(surface).toHaveFocus());
+    expect(screen.queryByRole("dialog", { name: "训练已暂停" })).not.toBeInTheDocument();
+  });
+
   it("cancels transient callbacks when the surface unmounts", async () => {
     vi.useFakeTimers();
     const { surface, onComplete } = renderSurface("a", { settings: { stopOnError: true } });

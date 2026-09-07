@@ -355,12 +355,7 @@ export function AnalyticsPage() {
     featureTypeOptions.find((option) => option.value === featureType)?.label ?? featureType;
   if (query.isLoading) return <LoadingState label="正在汇总本机训练事件…" />;
   if (query.isError || !query.data)
-    return (
-      <ErrorState
-        message={query.error instanceof Error ? query.error.message : "无法读取分析数据。"}
-        onRetry={() => void query.refetch()}
-      />
-    );
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   const data = query.data;
   const shiftSummary = data.shiftSummary ?? {
     left: 0,
@@ -414,7 +409,7 @@ export function AnalyticsPage() {
       <PageHeader
         eyebrow="个人分析"
         title="把数据变成下一次行动"
-        description="所有聚合来自本机 SQLite；训练、测试和游戏保留各自标签。"
+        description="所有结果都来自保存在本机的训练记录；训练、测试和游戏保留各自标签。"
         action={
           <SegmentedControl
             label="时间范围"
@@ -461,6 +456,387 @@ export function AnalyticsPage() {
           tone={accuracy >= 0.975 ? "good" : "neutral"}
         />
       </section>
+
+      <section className="panel analytics-trend">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">
+              <BarChart3 size={15} />
+              速度与准确率
+            </p>
+            <h2>按训练、测试与游戏分开查看</h2>
+          </div>
+          <div>
+            <div className="filter-chips compact">
+              {(["training", "test", "game"] as const).map((kind) => (
+                <button
+                  type="button"
+                  key={kind}
+                  aria-pressed={trendKind === kind}
+                  className={trendKind === kind ? "is-active" : ""}
+                  onClick={() => setTrendKind(kind)}
+                >
+                  {kind === "training" ? "训练" : kind === "test" ? "测试" : "游戏"}
+                </button>
+              ))}
+            </div>
+            <p className="chart-summary">
+              图表摘要：
+              {chartData.length
+                ? `${chartData.length} 个${trendKind === "training" ? "训练" : trendKind === "test" ? "测试" : "游戏"}数据点，最近净 WPM ${chartData.at(-1)?.net_wpm.toFixed(1)}。`
+                : "当前类型与范围没有数据。"}
+            </p>
+          </div>
+        </div>
+        {chartData.length ? (
+          <div className="chart-frame chart-frame--large">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <CartesianGrid vertical={false} stroke="var(--line)" />
+                <XAxis
+                  dataKey="local_date"
+                  tickFormatter={(value: string) => value.slice(5)}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis yAxisId="wpm" axisLine={false} tickLine={false} />
+                <YAxis
+                  yAxisId="accuracy"
+                  orientation="right"
+                  domain={[80, 100]}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip />
+                <Legend />
+                <Area
+                  yAxisId="wpm"
+                  type="monotone"
+                  dataKey="net_wpm"
+                  name="净 WPM"
+                  stroke="var(--accent)"
+                  fill="var(--accent-soft)"
+                  strokeWidth={2}
+                />
+                <Area
+                  yAxisId="accuracy"
+                  type="monotone"
+                  dataKey="accuracyPercent"
+                  name="准确率 %"
+                  stroke="var(--success)"
+                  fill="transparent"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <EmptyState
+            title="没有可以绘制的趋势"
+            description="完成一次所选类型的练习后，在这里查看速度与准确率的变化。"
+          />
+        )}
+      </section>
+      <section className="panel" aria-labelledby="error-analysis-heading">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">
+              <Info size={15} />
+              可观察错误分析
+            </p>
+            <h2 id="error-analysis-heading">错误模式与下一次行动</h2>
+          </div>
+          <p className="chart-summary">
+            {errorAnalysis.baselineIkiMs == null
+              ? "稳定节奏基线：样本不足"
+              : `稳健 IKI 基线 ${Math.round(errorAnalysis.baselineIkiMs)} ms · ${errorAnalysis.validTimingSamples} 个有效节奏样本`}
+          </p>
+        </div>
+        <p className="shift-summary-note">
+          结论只来自当前范围内的训练事件；手与手指项表示当前键盘映射推断的键区表现，不检测真实手指，也不诊断肌肉记忆。
+        </p>
+        <dl className="shift-summary" aria-label="错误分析证据覆盖">
+          {(Object.keys(EVIDENCE_LABELS) as (keyof typeof EVIDENCE_LABELS)[]).map((key) => {
+            const item = errorAnalysis.evidence[key];
+            return (
+              <div key={key}>
+                <dt>{EVIDENCE_LABELS[key]}</dt>
+                <dd>
+                  {evidenceLabel(item.status)} · {item.sampleCount}/{item.minimumSamples}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+        {actionableIssues.length ? (
+          <div className="group-list" aria-label="可行动错误摘要">
+            {actionableIssues.map((issue) => {
+              const guidance = ERROR_GUIDANCE[issue.kind] ?? {
+                label: issue.kind,
+                action: "在下一轮短组中复测；样本继续增加后再判断是否稳定出现。"
+              };
+              const features = issue.topFeatures
+                .slice(0, 3)
+                .map((feature) => visibleFeature(feature.feature))
+                .join("、");
+              return (
+                <div key={issue.kind}>
+                  <span>
+                    <strong>{guidance.label}</strong>
+                    <small>
+                      {issue.count} 次可观察信号{features ? ` · ${features}` : ""}
+                    </small>
+                  </span>
+                  <span>
+                    <small>{guidance.action}</small>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            title={errorAnalysis.eventCount ? "当前没有足够证据形成错误模式" : "等待真实训练事件"}
+            description={
+              errorAnalysis.eventCount
+                ? "继续积累样本；不会把一次波动包装成确定结论。"
+                : "完成课程后，这里会根据本机训练记录生成可行动摘要。"
+            }
+          />
+        )}
+      </section>
+
+      <div className="two-column-grid analytics-grid">
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">
+                <Keyboard size={15} />
+                键盘热力图
+              </p>
+              <h2>字符准确率 × 样本量</h2>
+            </div>
+          </div>
+          {data.features.some((feature) => feature.feature_type === "key") ? (
+            <KeyboardHeatmap features={data.features} layout={activeKeyboardLayout(bootstrap)} />
+          ) : (
+            <EmptyState title="热力图等待样本" description="至少完成一轮字母练习后开始着色。" />
+          )}
+        </section>
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">
+                <Grid3X3 size={15} />
+                混淆矩阵
+              </p>
+              <h2>实际输入 → 目标输入</h2>
+            </div>
+          </div>
+          {data.confusion.length ? (
+            <div className="confusion-grid">
+              {data.confusion.map((item) => (
+                <div key={`${item.target_char}-${item.actual_char}`}>
+                  <span>{item.actual_char || "∅"}</span>
+                  <ArrowRightMini />
+                  <span>{item.target_char || "∅"}</span>
+                  <strong>{item.count}</strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="当前范围没有混淆" description="只有真实错误才会出现在这里。" />
+          )}
+        </section>
+      </div>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">
+              <Activity size={15} />
+              逐特征状态
+            </p>
+            <h2>速度、错误率、置信区间与学习斜率</h2>
+          </div>
+          <div className="filter-chips compact">
+            {featureTypeOptions.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                aria-pressed={featureType === option.value}
+                className={featureType === option.value ? "is-active" : ""}
+                onClick={() => setFeatureType(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {filteredFeatures.length ? (
+          <div className="table-wrap">
+            <table>
+              <caption className="sr-only">
+                {featureTypeLabel}特征的样本量、准确率、置信区间、节奏与学习斜率
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">特征</th>
+                  <th scope="col">状态</th>
+                  <th scope="col">样本</th>
+                  <th scope="col">准确率</th>
+                  <th scope="col">95% 近似区间</th>
+                  <th scope="col">短期 IKI</th>
+                  <th scope="col">学习斜率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFeatures.map((feature) => {
+                  const half = feature.sample_count
+                    ? 1.96 *
+                      Math.sqrt(
+                        (feature.accuracy * (1 - feature.accuracy) +
+                          1 / (feature.sample_count + 4)) /
+                          (feature.sample_count + 4)
+                      )
+                    : 0;
+                  return (
+                    <tr key={`${feature.feature_type}-${feature.feature_value}`}>
+                      <td>
+                        <strong>
+                          {feature.feature_value === " " ? "Space" : feature.feature_value}
+                        </strong>
+                      </td>
+                      <td>
+                        <span className="status-tag">{featureTag(feature)}</span>
+                      </td>
+                      <td>{feature.sample_count}</td>
+                      <td>{(feature.accuracy * 100).toFixed(1)}%</td>
+                      <td>
+                        {feature.sample_count
+                          ? `${Math.max(0, (feature.accuracy - half) * 100).toFixed(1)}–${Math.min(100, (feature.accuracy + half) * 100).toFixed(1)}%`
+                          : "—"}
+                      </td>
+                      <td>
+                        {feature.short_iki_ms ? `${Math.round(feature.short_iki_ms)} ms` : "—"}
+                      </td>
+                      <td>
+                        {feature.learning_slope == null ? (
+                          "样本不足"
+                        ) : (
+                          <span className={feature.learning_slope >= 0 ? "positive" : "negative"}>
+                            {feature.learning_slope >= 0 ? (
+                              <ArrowUpRight size={14} />
+                            ) : (
+                              <ArrowDownRight size={14} />
+                            )}{" "}
+                            {feature.learning_slope.toFixed(3)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            title="这个特征层还没有样本"
+            description="SymType 会在样本不足时显示无结论，而不是夸大一次表现。"
+          />
+        )}
+      </section>
+      <div className="two-column-grid analytics-grid">
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">
+                <Timer size={15} />
+                映射键区聚合
+              </p>
+              <h2>手、手指、行、区域与 Shift</h2>
+            </div>
+          </div>
+          <dl className="shift-summary" aria-label="Shift 侧别统计">
+            {[
+              ["左 Shift", shiftSummary.left],
+              ["右 Shift", shiftSummary.right],
+              ["漏 Shift", shiftSummary.missing],
+              ["同手 Shift", shiftSummary.sameHand],
+              ["Caps Lock", shiftSummary.capsLock]
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="shift-summary-note">
+            左/右/漏 Shift 只统计需要 Shift 的目标；同手错误按目标键映射推断，Caps Lock 单独计数。
+          </p>
+          {data.groups.length ? (
+            <div className="group-list">
+              {data.groups.slice(0, 12).map((group, index) => (
+                <div key={`${group.hand}-${group.finger}-${group.zone}-${index}`}>
+                  <span>
+                    <strong>{group.finger}</strong>
+                    <small>
+                      {group.hand} · {group.row} · {group.zone} · Shift {group.shift_side}
+                    </small>
+                  </span>
+                  <span>
+                    <strong>{Math.round(group.accuracy * 100)}%</strong>
+                    <small>
+                      {group.samples} 样本 ·{" "}
+                      {(group.median_iki_ms ?? group.mean_iki_ms)
+                        ? `${Math.round(group.median_iki_ms ?? group.mean_iki_ms ?? 0)} ms 中位` +
+                          (group.iki_mad_ms != null
+                            ? ` · MAD ${Math.round(group.iki_mad_ms)} ms`
+                            : " · 样本不足以估计 MAD")
+                        : "无合格 IKI"}
+                    </small>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="尚无键区聚合"
+              description="这里描述的是当前映射推断的键区表现，不是实际手指检测。"
+            />
+          )}
+        </section>
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">
+                <Info size={15} />
+                最近错误回放
+              </p>
+              <h2>只显示训练上下文</h2>
+            </div>
+          </div>
+          {data.recentErrors.length ? (
+            <div className="error-replay">
+              {data.recentErrors.map((error, index) => (
+                <div key={`${error.session_id}-${error.text_position}-${index}`}>
+                  <code>{error.actual_char || "∅"}</code>
+                  <span>应为</span>
+                  <code>{error.target_char || "∅"}</code>
+                  <small>
+                    {error.physical_code} · 位置 {error.text_position + 1}
+                  </small>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="当前范围没有错误"
+              description="不会读取或展示训练区以外的任何键入内容。"
+            />
+          )}
+        </section>
+      </div>
       <section className="panel experiment-panel" aria-labelledby="experiment-heading">
         <div className="panel-heading">
           <div>
@@ -482,7 +858,7 @@ export function AnalyticsPage() {
         {!data.experiment ? (
           <EmptyState
             title="尚无实验摘要"
-            description="当前服务器没有返回策略实验数据；这里不会补入推测值。"
+            description="当前没有可显示的策略实验数据；这里不会补入推测值。"
           />
         ) : !data.experiment.enabled ? (
           <div className="experiment-disabled">
@@ -728,385 +1104,6 @@ export function AnalyticsPage() {
           </>
         )}
       </section>
-      <section className="panel" aria-labelledby="error-analysis-heading">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">
-              <Info size={15} />
-              可观察错误分析
-            </p>
-            <h2 id="error-analysis-heading">错误模式与下一次行动</h2>
-          </div>
-          <p className="chart-summary">
-            {errorAnalysis.baselineIkiMs == null
-              ? "稳定节奏基线：样本不足"
-              : `稳健 IKI 基线 ${Math.round(errorAnalysis.baselineIkiMs)} ms · ${errorAnalysis.validTimingSamples} 个有效节奏样本`}
-          </p>
-        </div>
-        <p className="shift-summary-note">
-          结论只来自当前范围内的训练事件；手与手指项表示当前键盘映射推断的键区表现，不检测真实手指，也不诊断肌肉记忆。
-        </p>
-        <dl className="shift-summary" aria-label="错误分析证据覆盖">
-          {(Object.keys(EVIDENCE_LABELS) as (keyof typeof EVIDENCE_LABELS)[]).map((key) => {
-            const item = errorAnalysis.evidence[key];
-            return (
-              <div key={key}>
-                <dt>{EVIDENCE_LABELS[key]}</dt>
-                <dd>
-                  {evidenceLabel(item.status)} · {item.sampleCount}/{item.minimumSamples}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-        {actionableIssues.length ? (
-          <div className="group-list" aria-label="可行动错误摘要">
-            {actionableIssues.map((issue) => {
-              const guidance = ERROR_GUIDANCE[issue.kind] ?? {
-                label: issue.kind,
-                action: "在下一轮短组中复测；样本继续增加后再判断是否稳定出现。"
-              };
-              const features = issue.topFeatures
-                .slice(0, 3)
-                .map((feature) => visibleFeature(feature.feature))
-                .join("、");
-              return (
-                <div key={issue.kind}>
-                  <span>
-                    <strong>{guidance.label}</strong>
-                    <small>
-                      {issue.count} 次可观察信号{features ? ` · ${features}` : ""}
-                    </small>
-                  </span>
-                  <span>
-                    <small>{guidance.action}</small>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <EmptyState
-            title={errorAnalysis.eventCount ? "当前没有足够证据形成错误模式" : "等待真实训练事件"}
-            description={
-              errorAnalysis.eventCount
-                ? "继续积累样本；不会把一次波动包装成确定结论。"
-                : "完成课程后，这里会从 SQLite 事件流生成可行动摘要。"
-            }
-          />
-        )}
-      </section>
-      <section className="panel analytics-trend">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">
-              <BarChart3 size={15} />
-              速度与准确率
-            </p>
-            <h2>按训练、测试与游戏分开查看</h2>
-          </div>
-          <div>
-            <div className="filter-chips compact">
-              {(["training", "test", "game"] as const).map((kind) => (
-                <button
-                  type="button"
-                  key={kind}
-                  aria-pressed={trendKind === kind}
-                  className={trendKind === kind ? "is-active" : ""}
-                  onClick={() => setTrendKind(kind)}
-                >
-                  {kind === "training" ? "训练" : kind === "test" ? "测试" : "游戏"}
-                </button>
-              ))}
-            </div>
-            <p className="chart-summary">
-              图表摘要：
-              {chartData.length
-                ? `${chartData.length} 个${trendKind === "training" ? "训练" : trendKind === "test" ? "测试" : "游戏"}数据点，最近净 WPM ${chartData.at(-1)?.net_wpm.toFixed(1)}。`
-                : "当前类型与范围没有数据。"}
-            </p>
-          </div>
-        </div>
-        {chartData.length ? (
-          <div className="chart-frame chart-frame--large">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <CartesianGrid vertical={false} stroke="var(--line)" />
-                <XAxis
-                  dataKey="local_date"
-                  tickFormatter={(value: string) => value.slice(5)}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis yAxisId="wpm" axisLine={false} tickLine={false} />
-                <YAxis
-                  yAxisId="accuracy"
-                  orientation="right"
-                  domain={[80, 100]}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip />
-                <Legend />
-                <Area
-                  yAxisId="wpm"
-                  type="monotone"
-                  dataKey="net_wpm"
-                  name="净 WPM"
-                  stroke="var(--accent)"
-                  fill="var(--accent-soft)"
-                  strokeWidth={2}
-                />
-                <Area
-                  yAxisId="accuracy"
-                  type="monotone"
-                  dataKey="accuracyPercent"
-                  name="准确率 %"
-                  stroke="var(--success)"
-                  fill="transparent"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <EmptyState
-            title="没有可以绘制的趋势"
-            description="完成对应类型后显示；空状态不会填入假数据。"
-          />
-        )}
-      </section>
-      <div className="two-column-grid analytics-grid">
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">
-                <Keyboard size={15} />
-                键盘热力图
-              </p>
-              <h2>字符准确率 × 样本量</h2>
-            </div>
-          </div>
-          {data.features.some((feature) => feature.feature_type === "key") ? (
-            <KeyboardHeatmap features={data.features} layout={activeKeyboardLayout(bootstrap)} />
-          ) : (
-            <EmptyState title="热力图等待样本" description="至少完成一轮字母练习后开始着色。" />
-          )}
-        </section>
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">
-                <Grid3X3 size={15} />
-                混淆矩阵
-              </p>
-              <h2>实际输入 → 目标输入</h2>
-            </div>
-          </div>
-          {data.confusion.length ? (
-            <div className="confusion-grid">
-              {data.confusion.map((item) => (
-                <div key={`${item.target_char}-${item.actual_char}`}>
-                  <span>{item.actual_char || "∅"}</span>
-                  <ArrowRightMini />
-                  <span>{item.target_char || "∅"}</span>
-                  <strong>{item.count}</strong>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="当前范围没有混淆" description="只有真实错误才会出现在这里。" />
-          )}
-        </section>
-      </div>
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">
-              <Activity size={15} />
-              逐特征状态
-            </p>
-            <h2>速度、错误率、置信区间与学习斜率</h2>
-          </div>
-          <div className="filter-chips compact">
-            {featureTypeOptions.map((option) => (
-              <button
-                type="button"
-                key={option.value}
-                aria-pressed={featureType === option.value}
-                className={featureType === option.value ? "is-active" : ""}
-                onClick={() => setFeatureType(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {filteredFeatures.length ? (
-          <div className="table-wrap">
-            <table>
-              <caption className="sr-only">
-                {featureTypeLabel}特征的样本量、准确率、置信区间、节奏与学习斜率
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">特征</th>
-                  <th scope="col">状态</th>
-                  <th scope="col">样本</th>
-                  <th scope="col">准确率</th>
-                  <th scope="col">95% 近似区间</th>
-                  <th scope="col">短期 IKI</th>
-                  <th scope="col">学习斜率</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredFeatures.map((feature) => {
-                  const half = feature.sample_count
-                    ? 1.96 *
-                      Math.sqrt(
-                        (feature.accuracy * (1 - feature.accuracy) +
-                          1 / (feature.sample_count + 4)) /
-                          (feature.sample_count + 4)
-                      )
-                    : 0;
-                  return (
-                    <tr key={`${feature.feature_type}-${feature.feature_value}`}>
-                      <td>
-                        <strong>
-                          {feature.feature_value === " " ? "Space" : feature.feature_value}
-                        </strong>
-                      </td>
-                      <td>
-                        <span className="status-tag">{featureTag(feature)}</span>
-                      </td>
-                      <td>{feature.sample_count}</td>
-                      <td>{(feature.accuracy * 100).toFixed(1)}%</td>
-                      <td>
-                        {feature.sample_count
-                          ? `${Math.max(0, (feature.accuracy - half) * 100).toFixed(1)}–${Math.min(100, (feature.accuracy + half) * 100).toFixed(1)}%`
-                          : "—"}
-                      </td>
-                      <td>
-                        {feature.short_iki_ms ? `${Math.round(feature.short_iki_ms)} ms` : "—"}
-                      </td>
-                      <td>
-                        {feature.learning_slope == null ? (
-                          "样本不足"
-                        ) : (
-                          <span className={feature.learning_slope >= 0 ? "positive" : "negative"}>
-                            {feature.learning_slope >= 0 ? (
-                              <ArrowUpRight size={14} />
-                            ) : (
-                              <ArrowDownRight size={14} />
-                            )}{" "}
-                            {feature.learning_slope.toFixed(3)}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyState
-            title="这个特征层还没有样本"
-            description="SymType 会在样本不足时显示无结论，而不是夸大一次表现。"
-          />
-        )}
-      </section>
-      <div className="two-column-grid analytics-grid">
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">
-                <Timer size={15} />
-                映射键区聚合
-              </p>
-              <h2>手、手指、行、区域与 Shift</h2>
-            </div>
-          </div>
-          <dl className="shift-summary" aria-label="Shift 侧别统计">
-            {[
-              ["左 Shift", shiftSummary.left],
-              ["右 Shift", shiftSummary.right],
-              ["漏 Shift", shiftSummary.missing],
-              ["同手 Shift", shiftSummary.sameHand],
-              ["Caps Lock", shiftSummary.capsLock]
-            ].map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="shift-summary-note">
-            左/右/漏 Shift 只统计需要 Shift 的目标；同手错误按目标键映射推断，Caps Lock 单独计数。
-          </p>
-          {data.groups.length ? (
-            <div className="group-list">
-              {data.groups.slice(0, 12).map((group, index) => (
-                <div key={`${group.hand}-${group.finger}-${group.zone}-${index}`}>
-                  <span>
-                    <strong>{group.finger}</strong>
-                    <small>
-                      {group.hand} · {group.row} · {group.zone} · Shift {group.shift_side}
-                    </small>
-                  </span>
-                  <span>
-                    <strong>{Math.round(group.accuracy * 100)}%</strong>
-                    <small>
-                      {group.samples} 样本 ·{" "}
-                      {(group.median_iki_ms ?? group.mean_iki_ms)
-                        ? `${Math.round(group.median_iki_ms ?? group.mean_iki_ms ?? 0)} ms 中位` +
-                          (group.iki_mad_ms != null
-                            ? ` · MAD ${Math.round(group.iki_mad_ms)} ms`
-                            : " · 样本不足以估计 MAD")
-                        : "无合格 IKI"}
-                    </small>
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="尚无键区聚合"
-              description="这里描述的是当前映射推断的键区表现，不是实际手指检测。"
-            />
-          )}
-        </section>
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">
-                <Info size={15} />
-                最近错误回放
-              </p>
-              <h2>只显示训练上下文</h2>
-            </div>
-          </div>
-          {data.recentErrors.length ? (
-            <div className="error-replay">
-              {data.recentErrors.map((error, index) => (
-                <div key={`${error.session_id}-${error.text_position}-${index}`}>
-                  <code>{error.actual_char || "∅"}</code>
-                  <span>应为</span>
-                  <code>{error.target_char || "∅"}</code>
-                  <small>
-                    {error.physical_code} · 位置 {error.text_position + 1}
-                  </small>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="当前范围没有错误"
-              description="不会读取或展示训练区以外的任何键入内容。"
-            />
-          )}
-        </section>
-      </div>
     </div>
   );
 }

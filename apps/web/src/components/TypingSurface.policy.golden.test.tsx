@@ -46,7 +46,7 @@ describe("TypingSurface V1 policy golden behavior", () => {
       elapsedMs: 100
     });
     expect(visibleGlyphs(surface)).toEqual([
-      { className: "typing-glyph is-correct", dataActual: null, text: "a" },
+      { className: "typing-glyph is-correct is-corrected", dataActual: null, text: "a" },
       { className: "typing-glyph is-current", dataActual: null, text: "b" }
     ]);
   });

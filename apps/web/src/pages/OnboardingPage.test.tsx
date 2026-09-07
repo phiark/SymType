@@ -32,11 +32,11 @@ function renderOnboarding(bootstrap: BootstrapData = testBootstrap) {
 }
 
 describe("OnboardingPage trust boundary", () => {
-  it("explains local SQLite authority and the inferred-finger limitation before setup", () => {
+  it("explains local data durability and the inferred-finger limitation before setup", () => {
     renderOnboarding();
 
     expect(screen.getByText("只在这台电脑")).toBeVisible();
-    expect(screen.getByText(/服务端本地 SQLite；清浏览器数据不会删除/u)).toBeVisible();
+    expect(screen.getByText(/安全保存在这台电脑；清浏览器数据不会删除/u)).toBeVisible();
     expect(screen.getByText("不检测真实手指")).toBeVisible();
     expect(screen.getByText(/按当前映射推断的键区表现/u)).toBeVisible();
   });
@@ -108,7 +108,9 @@ describe("OnboardingPage trust boundary", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "稍后校准" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("无法连接本地服务器，请重试。");
+    expect(await screen.findByRole("alert")).toHaveTextContent("本次更改尚未保存");
+    expect(screen.getByRole("alert")).toHaveTextContent("已保存的数据未受影响");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("无法连接本地服务器");
     expect(screen.getByRole("button", { name: /数字ANSI 数字行/u })).toHaveAttribute(
       "aria-pressed",
       "false"

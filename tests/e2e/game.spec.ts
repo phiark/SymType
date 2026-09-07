@@ -412,7 +412,7 @@ test.describe.serial("Pineapple Breach state and UI", () => {
         (((failureLevel - 1) % 3) + 1) as 1 | 2 | 3
       );
       await expect(page.getByRole("heading", { name: "信号被切断" })).toBeVisible();
-      await expect(page.getByText(/整个 run 回到第 1 关/)).toBeVisible();
+      await expect(page.getByText(/整个任务回到第 1 关/)).toBeVisible();
       const state = await readRun(request, created.run.id);
       expect(state.run).toMatchObject({ current_level: 1, score: 0, alert_value: 0 });
       expect(latestAttempt(state.run, 1)).toMatchObject({
@@ -521,10 +521,17 @@ test.describe.serial("Pineapple Breach state and UI", () => {
     expect(beforePause).toBeLessThan(initial);
     await page.evaluate(() => window.dispatchEvent(new Event("blur")));
     await expect(page.getByText(/游戏已暂停/)).toBeVisible();
+    const pauseDialog = page.getByRole("dialog", { name: "训练已暂停" });
+    await expect(pauseDialog.getByRole("button", { name: "退出" })).toBeVisible();
     const pausedAt = await timer.textContent();
     await page.clock.runFor(5_000);
     expect(await timer.textContent()).toBe(pausedAt);
-    await page.locator(".typing-toolbar").getByRole("button", { name: "继续" }).click();
+    await pauseDialog.getByRole("button", { name: "退出" }).click();
+    const exitDialog = page.getByRole("dialog", { name: "退出当前关卡？" });
+    await expect(exitDialog).toBeVisible();
+    await exitDialog.getByRole("button", { name: "继续本关" }).click();
+    await expect(pauseDialog).toBeVisible();
+    await pauseDialog.getByRole("button", { name: "继续训练" }).click();
     await expect(page.getByText(/游戏已暂停/)).toHaveCount(0);
     await page.clock.runFor(1_100);
     const afterResume = Number.parseInt((await timer.textContent()) ?? "", 10);

@@ -256,7 +256,9 @@ describe("SettingsPage accessibility", () => {
 
     expect(await screen.findByRole("combobox", { name: "主题" })).toBeVisible();
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("无法读取最近快照：快照目录暂不可读");
+    expect(alert).toHaveTextContent("暂时无法创建或读取备份");
+    expect(alert).toHaveTextContent("现有数据未改变");
+    expect(alert).not.toHaveTextContent("快照目录暂不可读");
     expect(screen.getByRole("button", { name: "重试读取" })).toBeVisible();
   });
 
@@ -270,7 +272,9 @@ describe("SettingsPage accessibility", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存更改" }));
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("SQLite 暂时繁忙");
+    expect(alert).toHaveTextContent("本次更改尚未保存");
+    expect(alert).toHaveTextContent("已保存的数据未受影响");
+    expect(alert).not.toHaveTextContent("SQLite");
     expect(screen.getByRole("button", { name: "保存更改" })).toBeEnabled();
   });
 });

@@ -162,6 +162,25 @@ uncorrected error once per active minute and floor at zero. The prior server cla
 error count were implementation drift, not the V1 business contract. Every changed literal must be
 paired with focused regression evidence.
 
+## V2-D015: Correct the confirmed focused-training defects without expanding V1
+
+**Date:** 2026-07-24
+**State:** Accepted by the repository maintainer for Issues #8, #10, #11, #13, #14, and #15
+
+Maintainer testing and the attached Keybr interaction references confirmed six bounded defects: the
+current target could look completed, the virtual keyboard discarded authoritative ANSI coordinates
+and made finger zones hard to scan, generated automatic text could end on an invisible separator,
+pause exposed no guarded exit action, implementation jargon leaked into routine copy, and active
+training retained redundant rationale/count/storage chrome.
+
+Fix those defects as convergence work. Preserve input events, mappings, metrics, session lifecycle,
+persistence, routes, settings, and all imported/custom content. Issue #13 is the only authorized
+literal lesson-output correction: remove terminal whitespace at the automatic generator boundary,
+update the fixed golden transparently, and leave candidate choice, scoring, rationale, historic
+blocks, and user-authored bytes unchanged. The visual fixes may strengthen existing state cues and
+reuse the existing guarded exit owner; they may not add a mode, setting, shortcut, or unguarded
+navigation path.
+
 ## Confirmed defects
 
 This section records only defects confirmed during V2 work. Add a regression test before a fix.
@@ -195,3 +214,64 @@ This section records only defects confirmed during V2 work. Add a regression tes
   make the model depend on receive order. That rare path now folds only touched features from the
   same profile's canonical session/event order and writes each once; normal in-order batches remain
   incremental.
+- UI-002: A filled block caret made the next untyped glyph resemble completed history. Current,
+  untouched, correct, incorrect, and corrected states now expose distinct semantic and non-color
+  presentation while retaining current-position scrolling and event output.
+- UI-003: The virtual keyboard centered every row instead of consuming shared ANSI columns, and
+  encoded finger zones with subtle borders. Rendering now derives row placement and key widths from
+  the shared layout and combines five paired finger-class colors (pinky, ring, middle, index, thumb)
+  with left/right labels, zone boundaries, home-key marks, and target cues.
+- LESSON-001: Candidate truncation could retain only a leading separator as the final generated
+  character. Automatic generation now removes terminal whitespace after assembly; V2-D015 authorizes
+  the paired fixed-output correction without trimming imported or custom text.
+- UI-004: The paused typing overlay offered only resume. It now exposes keyboard-contained Continue
+  and Exit actions, with Exit delegating to the existing save/confirm/navigation owner.
+- COPY-001: Routine UI surfaced storage-engine names and raw implementation errors. Presentation now
+  maps semantic contexts to actionable, redacted user copy while expert backup controls retain
+  accurate format terminology.
+- UI-005: Focused training repeated storage, phase, rationale, and block-count chrome around the lesson.
+  The active state now keeps accessible progress and save/recovery status while removing those
+  redundant visual labels.
+
+## V2-D016: Product journey convergence and revision-validated statistics
+
+**Date:** 2026-09-07
+**State:** Accepted scope under the maintainer's product-wide refactor request; Issue #18
+
+Optimize the complete choose/type/review/return loop while preserving every V1 function. Reopen
+visual convergence where direct before screenshots and keyboard review show choice overload,
+misplaced primary actions, lost focus, ambiguous glyphs, or poor recovery. Keep the existing design
+system, six routes, training modes, test durations, settings, mappings, metric definitions and game
+rules. No new framework, dependency, remote service or database migration is justified.
+
+A current 100k-event baseline confirms that repeated all-time statistics occupy the local server for
+about one second per request. Reuse a derived report only while SQLite's local change count,
+external-commit data version and period calendar boundary still match. Bypass transaction snapshots,
+clone returned values and keep at most four period entries. The underlying aggregation algorithm is
+unchanged. The first read after invalidation remains a measured limitation. The empty Today page
+loads charts only after real trend data exists.
+
+The earlier Issue 14 batch is incorporated through its original commit, including V2-D015's bounded
+automatic-text correction. A repeated target under a new persisted block ID resets input state
+without remounting the typing surface. Local update/render failures receive an explicit reload
+screen, without raw error output or a claim that unsaved edits survived.
+
+Keep the change only with literal output equivalence, cache invalidation tests, both-engine journey
+and data-safety coverage, reviewed visual evidence and the minimal performance baseline. Independent
+approval, passing CI, current main and resolved conversations remain mandatory for merge. See
+[the product review](ISSUE-18-PRODUCT-REVIEW.md) for evidence and rollback.
+
+## V2-D017: Persist inferred browser durations in the existing integer-ms contract
+
+**Date:** 2026-09-07
+**State:** Confirmed defect correction under Issue #18 and V2-D014
+
+The mixed-input performance replay returned HTTP 500 on save/exit. A minimal replay found that
+fractional browser IKI values produced fractional inferred `activeMs`; the persisted summary schema
+requires integer milliseconds. Recovery without an explicit duration failed at the same boundary.
+Round the aggregate duration once before computing the summary, matching the existing completion
+request/API contract. Keep raw event timings unchanged and preserve all integer-duration outputs.
+The rounding difference is at most half a millisecond per inferred session, with the existing
+one-second minimum retained. Integration tests exercise abandon and complete recovery, restart,
+unchanged fractional raw timing, and JSON export. The browser mixed-input replay is the acceptance
+case; do not weaken the persisted schema or replace failed data.

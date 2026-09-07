@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { AlertCircle, ArrowRight, LoaderCircle } from "lucide-react";
 
+import { presentUserError, type UserErrorContext } from "../error-presentation";
+
 export function PageHeader({
   eyebrow,
   title,
@@ -53,19 +55,21 @@ export function LoadingState({ label = "正在读取本机数据…" }: { label?
   );
 }
 
-function readableLocalError(message: string): string {
-  if (/failed to fetch|load failed|network ?error|network request failed/iu.test(message)) {
-    return "无法连接本机服务。请确认 SymType 仍在运行，然后重试。";
-  }
-  return message;
-}
-
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorState({
+  error,
+  context = "load",
+  onRetry
+}: {
+  error?: unknown;
+  context?: UserErrorContext;
+  onRetry?: () => void;
+}) {
+  const presentation = presentUserError(error, context);
   return (
     <div className="center-state center-state--error" role="alert">
       <AlertCircle size={26} />
-      <h2>本地服务暂时没有回应</h2>
-      <p>{readableLocalError(message)}</p>
+      <h2>{presentation.title}</h2>
+      <p>{presentation.message}</p>
       {onRetry ? (
         <button className="button button--secondary" type="button" onClick={onRetry}>
           重试 <ArrowRight size={16} />

@@ -27,6 +27,7 @@ import {
   type TypingSurfaceHandle
 } from "../components/TypingSurface";
 import { ErrorState, LoadingState, PageHeader, SegmentedControl } from "../components/ui";
+import { userErrorText } from "../error-presentation";
 import { usePersistentEvents } from "../hooks/usePersistentEvents";
 import { useSessionNavigationGuard } from "../hooks/useSessionNavigationGuard";
 import { activeKeyboardLayout } from "../keyboard";
@@ -144,8 +145,8 @@ export function GameExitConfirmation({
         <Dialog.Content className="dialog-content">
           <Dialog.Title>退出当前关卡？</Dialog.Title>
           <Dialog.Description>
-            已产生的有效按键会先写入 SQLite，当前游戏 session 随后标记为已放弃。下次继续此 run
-            时，本关从阶段 1、零警戒重新开始。
+            已产生的有效按键会先安全保存在本机，随后结束本关。下次继续当前任务时，本关从阶段
+            1、零警戒重新开始。
           </Dialog.Description>
           <div className="dialog-actions">
             <Dialog.Close asChild>
@@ -292,7 +293,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
       });
       void navigate(`/game/play?run=${response.run.id}`);
     } catch (error) {
-      setStartError(error instanceof Error ? error.message : "无法创建本地游戏 run。");
+      setStartError(userErrorText(error, "start"));
     } finally {
       setStarting(false);
     }
@@ -393,7 +394,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
       setBriefing(false);
       window.setTimeout(() => surfaceRef.current?.focus(), 50);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "无法开始当前关卡，请重试。");
+      setSaveError(userErrorText(error, "start"));
       setBriefing(true);
     }
   };
@@ -439,9 +440,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
         committed = true;
       } catch (error) {
         setPaused(true);
-        setSaveError(
-          error instanceof Error ? error.message : "游戏事件尚未写入；当前关保持暂停，可立即重试。"
-        );
+        setSaveError(userErrorText(error, "session"));
       } finally {
         if (committed) {
           sessionIdRef.current = null;
@@ -461,7 +460,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
   const loadGameStage = useCallback(
     async (nextStage: 2 | 3) => {
       if (!game || !runId || !lessonIdRef.current) {
-        setSaveError("当前游戏 lesson 已失效，请退出并重开本关。");
+        setSaveError("本关无法继续。已经保存的游戏进度不受影响；请退出并重新打开本关。");
         return;
       }
       setResolving(true);
@@ -492,9 +491,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
       } catch (error) {
         pendingStageRef.current = nextStage;
         setPaused(true);
-        setSaveError(
-          error instanceof Error ? error.message : "下一阶段尚未载入；本关已暂停，可立即重试。"
-        );
+        setSaveError(userErrorText(error, "session"));
       } finally {
         setResolving(false);
       }
@@ -637,7 +634,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
         });
       }
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "无法保存并退出当前关卡。");
+      setSaveError(userErrorText(error, "session"));
     } finally {
       setExitSaving(false);
     }
@@ -693,8 +690,8 @@ export function GamePage({ play = false }: { play?: boolean }) {
       <div className="page game-landing">
         <PageHeader
           eyebrow="Pineapple Breach"
-          title="菠萝公司的文字防线正在上线"
-          description="六关本地打字 campaign。剧情与字符串全部虚构，不包含真实攻击步骤或凭据。"
+          title="菠萝公司的文字防线"
+          description="六关打字挑战。剧情和字符串全部虚构。"
           action={
             resumableRunId ? (
               <button
@@ -702,11 +699,64 @@ export function GamePage({ play = false }: { play?: boolean }) {
                 type="button"
                 onClick={() => void navigate(`/game/play?run=${resumableRunId}`)}
               >
-                继续当前 run <ArrowRight size={16} />
+                继续当前任务 <ArrowRight size={16} />
               </button>
             ) : undefined
           }
         />
+        <section className="game-start panel">
+          <div>
+            <SegmentedControl
+              label="难度"
+              value={difficulty}
+              onChange={setDifficulty}
+              options={[
+                { value: "standard", label: "Standard" },
+                { value: "hard", label: "Hard" },
+                { value: "adaptive", label: "Adaptive" }
+              ]}
+            />
+            <SegmentedControl
+              label="Run 规则"
+              value={runMode}
+              onChange={setRunMode}
+              options={[
+                { value: "campaign", label: "Campaign" },
+                { value: "hardcore", label: "Hardcore Run" }
+              ]}
+            />
+          </div>
+          <div className="rule-warning" data-hardcore={runMode === "hardcore"}>
+            <AlertTriangle size={19} />
+            <p>
+              {runMode === "hardcore" ? (
+                <>
+                  <strong>Hardcore：任一关失败，整个任务从第 1 关、零分、零警戒重新开始。</strong>{" "}
+                  已完成的个人最佳仍保留。
+                </>
+              ) : (
+                <>
+                  <strong>Campaign：失败时当前关从阶段 1、零分、零警戒重开。</strong>{" "}
+                  已通关前置关卡保持解锁。
+                </>
+              )}
+            </p>
+          </div>
+          {startError ? (
+            <p className="error-notice" role="alert">
+              {startError}
+            </p>
+          ) : null}
+          <button
+            className="button button--primary button--large"
+            type="button"
+            disabled={starting}
+            onClick={() => void startCampaign()}
+          >
+            {starting ? "正在准备任务…" : "启动新任务"}
+            <ArrowRight size={18} />
+          </button>
+        </section>
         <section className="game-hero panel">
           <div>
             <p className="game-kicker">
@@ -741,12 +791,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
 
         {progressQuery.isError && !progressUnavailable ? (
           <div className="game-progress-error" role="alert">
-            <span>
-              未能读取 run 与个人最佳：
-              {progressQuery.error instanceof Error
-                ? progressQuery.error.message
-                : "本地进度暂不可用。"}
-            </span>
+            <span>{userErrorText(progressQuery.error, "load")}</span>
             <button
               className="text-button"
               type="button"
@@ -758,11 +803,11 @@ export function GamePage({ play = false }: { play?: boolean }) {
           </div>
         ) : progressUnavailable ? (
           <p className="game-progress-note">
-            当前本地服务未提供 run 汇总；关卡只显示已确认的成就，并保守地从第 1 关开始。
+            暂时无法读取任务汇总；关卡只显示已确认的成就，并保守地从第 1 关开始。
           </p>
         ) : progressQuery.isLoading ? (
           <p className="game-progress-note" role="status">
-            正在读取本地 run 与个人最佳…
+            正在读取任务进度与个人最佳…
           </p>
         ) : null}
 
@@ -812,8 +857,8 @@ export function GamePage({ play = false }: { play?: boolean }) {
                       ? `已通关${best ? ` · 最佳 ${best.toLocaleString()} 分` : ""}`
                       : unlocked
                         ? levelNumber === activeRun?.current_level
-                          ? "当前 run 正在此关"
-                          : "已解锁，可在 run 中进入"
+                          ? "当前任务正在此关"
+                          : "已解锁，可在任务中进入"
                         : "完成前一关后解锁"}
                   </small>
                 </div>
@@ -836,7 +881,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
                 <Medal size={15} />
                 本地成就
               </p>
-              <h2 id="game-achievements-title">只展示已写入 SQLite 的结果</h2>
+              <h2 id="game-achievements-title">只展示已经保存的结果</h2>
             </div>
             {personalBest ? (
               <strong className="game-personal-best">
@@ -846,11 +891,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
           </div>
           {achievementsQuery.isError ? (
             <div className="game-progress-error" role="alert">
-              <span>
-                {achievementsQuery.error instanceof Error
-                  ? achievementsQuery.error.message
-                  : "无法读取本地成就。"}
-              </span>
+              <span>{userErrorText(achievementsQuery.error, "load")}</span>
               <button
                 className="text-button"
                 type="button"
@@ -889,79 +930,14 @@ export function GamePage({ play = false }: { play?: boolean }) {
             </div>
           )}
         </section>
-
-        <section className="game-start panel">
-          <div>
-            <SegmentedControl
-              label="难度"
-              value={difficulty}
-              onChange={setDifficulty}
-              options={[
-                { value: "standard", label: "Standard" },
-                { value: "hard", label: "Hard" },
-                { value: "adaptive", label: "Adaptive" }
-              ]}
-            />
-            <SegmentedControl
-              label="Run 规则"
-              value={runMode}
-              onChange={setRunMode}
-              options={[
-                { value: "campaign", label: "Campaign" },
-                { value: "hardcore", label: "Hardcore Run" }
-              ]}
-            />
-          </div>
-          <div className="rule-warning" data-hardcore={runMode === "hardcore"}>
-            <AlertTriangle size={19} />
-            <p>
-              {runMode === "hardcore" ? (
-                <>
-                  <strong>Hardcore：任一关失败，整个 run 从第 1 关、零分、零警戒重新开始。</strong>{" "}
-                  已完成的个人最佳仍保留。
-                </>
-              ) : (
-                <>
-                  <strong>Campaign：失败时当前关从阶段 1、零分、零警戒重开。</strong>{" "}
-                  已通关前置关卡保持解锁。
-                </>
-              )}
-            </p>
-          </div>
-          {startError ? (
-            <p className="error-notice" role="alert">
-              {startError}
-            </p>
-          ) : null}
-          <button
-            className="button button--primary button--large"
-            type="button"
-            disabled={starting}
-            onClick={() => void startCampaign()}
-          >
-            {starting ? "正在建立本地 run…" : "启动新任务"}
-            <ArrowRight size={18} />
-          </button>
-        </section>
       </div>
     );
   }
 
-  if (!runId)
-    return (
-      <ErrorState
-        message="缺少本地 run 标识，请返回游戏页重新开始。"
-        onRetry={() => navigate("/game")}
-      />
-    );
+  if (!runId) return <ErrorState context="game" onRetry={() => navigate("/game")} />;
   if (gameQuery.isLoading) return <LoadingState label="正在读取菠萝公司任务状态…" />;
   if (gameQuery.isError || !game)
-    return (
-      <ErrorState
-        message={gameQuery.error instanceof Error ? gameQuery.error.message : "无法读取游戏。"}
-        onRetry={() => void gameQuery.refetch()}
-      />
-    );
+    return <ErrorState error={gameQuery.error} onRetry={() => void gameQuery.refetch()} />;
   if (game.run.status === "completed")
     return (
       <div className="game-complete">
@@ -1030,7 +1006,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
                       : "警戒值达到上限。"
                 } ${
                   game.run.mode === "hardcore"
-                    ? "Hardcore 规则已执行：整个 run 回到第 1 关、零分、零警戒。"
+                    ? "Hardcore 规则已执行：整个任务回到第 1 关、零分、零警戒。"
                     : `第 ${currentLevel} 关从阶段 1、零分、零警戒重开；前置关卡仍解锁。`
                 }`
               : succeeded
@@ -1069,12 +1045,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
               setSaveError("");
               void gameQuery.refetch().then((result) => {
                 if (result.data) void beginLevel(result.data);
-                else
-                  setSaveError(
-                    result.error instanceof Error
-                      ? result.error.message
-                      : "无法刷新当前关卡，请重试。"
-                  );
+                else setSaveError(userErrorText(result.error, "load"));
               });
             }}
           >
@@ -1130,7 +1101,7 @@ export function GamePage({ play = false }: { play?: boolean }) {
         </div>
         <div className="save-state" role="status" aria-live="polite">
           <span className="status-dot" />
-          SQLite {pendingCount ? `待写 ${pendingCount}` : "已同步"}
+          本机记录 {pendingCount ? `待保存 ${pendingCount}` : "已保存"}
         </div>
       </div>
       <p className="game-rule-line" aria-live="polite">
@@ -1191,7 +1162,8 @@ export function GamePage({ play = false }: { play?: boolean }) {
         onConfirm={() => void exitActiveLevel()}
       />
       <span className="sr-only">
-        当前游戏 session {sessionId ?? "未开始"}，lesson {lessonId ?? "未创建"}。
+        当前游戏记录{sessionId ? "已建立" : "未开始"}，关卡内容
+        {lessonId ? "已载入" : "未创建"}。
       </span>
     </div>
   );

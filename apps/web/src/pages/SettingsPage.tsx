@@ -26,6 +26,7 @@ import { useOutletContext } from "react-router-dom";
 import { api } from "../api";
 import { soundEngine } from "../audio";
 import { EmptyState, PageHeader } from "../components/ui";
+import { userErrorText } from "../error-presentation";
 import type { AppSettings, BackupRecord, BootstrapData, KeyboardMappingRecord } from "../types";
 
 const sections = [
@@ -134,12 +135,12 @@ export function SettingsPage() {
       setSavedRevision(draft.revision);
       showMessage(
         editRevisionRef.current === draft.revision
-          ? "设置与目标已在一个 SQLite 事务中保存。"
+          ? "设置与目标已安全保存在本机。"
           : "本次保存已完成；保存期间的新更改仍未保存。"
       );
       await queryClient.invalidateQueries({ queryKey: ["bootstrap"] });
     },
-    onError: (error) => showMessage(error instanceof Error ? error.message : "保存失败。", "error")
+    onError: (error) => showMessage(userErrorText(error, "save"), "error")
   });
 
   const patch = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
@@ -186,7 +187,7 @@ export function SettingsPage() {
       patch("activeLayoutId", result.id);
       showMessage("已复制为可编辑的自定义映射；完成逐键修改后，请保存映射和页面设置。");
     } catch (error) {
-      showMessage(error instanceof Error ? error.message : "无法复制键盘映射。", "error");
+      showMessage(userErrorText(error, "save"), "error");
     }
   };
 
@@ -211,7 +212,7 @@ export function SettingsPage() {
       setMappingDraft(null);
       showMessage("自定义映射内容已保存；再点击页面顶部“保存更改”即可启用并持久化选择。");
     } catch (error) {
-      showMessage(error instanceof Error ? error.message : "无法保存逐键映射。", "error");
+      showMessage(userErrorText(error, "save"), "error");
     }
   };
 
@@ -242,17 +243,15 @@ export function SettingsPage() {
         setSqliteRestoreToken(null);
         setBackupPreview(result.summary);
       }
-      showMessage(`${isSqlite ? "SQLite" : "JSON"} 备份校验通过。恢复前会自动备份当前数据库。`);
+      showMessage("备份校验通过。恢复前会自动备份当前数据。");
     } catch (error) {
       setBackupCandidate(null);
       setSqliteRestoreToken(null);
       setBackupPreview(null);
       showMessage(
         error instanceof SyntaxError
-          ? "无法读取 JSON 备份：文件内容不是有效 JSON。当前数据库未更改。"
-          : error instanceof Error
-            ? error.message
-            : "无法读取备份；当前数据库未更改。",
+          ? "无法读取所选备份。当前数据未改变；请选择有效的 SymType 备份后重试。"
+          : userErrorText(error, "restore"),
         "error"
       );
     }
@@ -274,10 +273,7 @@ export function SettingsPage() {
       await queryClient.invalidateQueries();
       window.location.reload();
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : "恢复失败；当前数据库未被替换。",
-        "error"
-      );
+      showMessage(userErrorText(error, "restore"), "error");
     }
   };
 
@@ -294,12 +290,9 @@ export function SettingsPage() {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-      showMessage("SQLite 一致性快照已生成并开始下载。");
+      showMessage("完整备份已生成并开始下载。");
     } catch (error) {
-      showMessage(
-        `SQLite 下载失败：${error instanceof Error ? error.message : "请刷新页面后重试。"}`,
-        "error"
-      );
+      showMessage(userErrorText(error, "backup"), "error");
     } finally {
       setDownloadingSqlite(false);
     }
@@ -310,8 +303,21 @@ export function SettingsPage() {
       <PageHeader
         eyebrow="设置"
         title="让 SymType 适合你的手与节奏"
-        description="设置、映射与算法参数都由服务器 SQLite 保存。"
-        action={
+        description="设置、映射与算法参数都安全保存在这台电脑。"
+      />
+      <div className="settings-toolbar">
+        <div className="settings-search">
+          <Search size={18} />
+          <input
+            type="search"
+            placeholder="搜索设置，例如 Shift、声音、备份…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label="搜索设置"
+          />
+        </div>
+        <div className="settings-save">
+          <span>{saved ? "更改已保存到本机" : "有未保存的更改"}</span>{" "}
           <button
             className="button button--primary"
             type="button"
@@ -335,17 +341,7 @@ export function SettingsPage() {
               "保存更改"
             )}
           </button>
-        }
-      />
-      <div className="settings-search">
-        <Search size={18} />
-        <input
-          type="search"
-          placeholder="搜索设置，例如 Shift、声音、备份…"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          aria-label="搜索设置"
-        />
+        </div>
       </div>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {search.trim()
@@ -381,6 +377,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 className={activeSection === id ? "is-active" : ""}
+                aria-current={activeSection === id ? "location" : undefined}
                 key={id}
                 onClick={() => {
                   setActiveSection(id);
@@ -425,7 +422,7 @@ export function SettingsPage() {
                   </div>
                   <ToggleRow
                     label="减少动态效果"
-                    detail="尊重 prefers-reduced-motion，并关闭非必要移动"
+                    detail="减少动画和界面移动"
                     checked={settings.reducedMotion}
                     onChange={(value) => patch("reducedMotion", value)}
                   />
@@ -496,7 +493,7 @@ export function SettingsPage() {
                   <SlidersHorizontal size={20} />
                   <div>
                     <h2>输入与训练</h2>
-                    <p>错误处理不会改变已经显示的微组。</p>
+                    <p>按你的习惯设置纠错方式和练习节奏。</p>
                   </div>
                 </div>
                 <div className="settings-list">
@@ -572,13 +569,13 @@ export function SettingsPage() {
                   <Volume2 size={20} />
                   <div>
                     <h2>声音</h2>
-                    <p>复用一个 AudioContext，在本机实时合成短 envelope。</p>
+                    <p>为击键和完成练习提供轻量声音反馈。</p>
                   </div>
                 </div>
                 <div className="settings-list">
                   <ToggleRow
                     label="声音反馈"
-                    detail="Safari 需要在点击后解锁"
+                    detail="为击键、错误和完成提供声音提示"
                     checked={settings.soundEnabled}
                     onChange={(value) => patch("soundEnabled", value)}
                   />
@@ -634,7 +631,7 @@ export function SettingsPage() {
                   <div className="setting-row">
                     <span>
                       <strong>试听</strong>
-                      <small>点击同时尝试解锁 Safari 音频</small>
+                      <small>试听当前音色与音量</small>
                     </span>
                     <button
                       className="button button--secondary"
@@ -774,9 +771,7 @@ export function SettingsPage() {
                     </button>
                   </>
                 ) : (
-                  <p className="inline-notice">
-                    内置预设只读。先复制，再逐键修改；C、B、N、M、数字和 Shift 边界都有回归测试。
-                  </p>
+                  <p className="inline-notice">内置预设可直接使用；复制后可逐键调整建议手指。</p>
                 )}
               </section>
             ) : null}
@@ -786,7 +781,7 @@ export function SettingsPage() {
                   <Target size={20} />
                   <div>
                     <h2>目标与算法</h2>
-                    <p>阈值和权重是可检验的工程假设，不是科学最优常数。</p>
+                    <p>根据你的水平调整目标和进阶条件，默认值可作为起点。</p>
                   </div>
                 </div>
                 <div className="settings-list">
@@ -917,7 +912,7 @@ export function SettingsPage() {
                   <Database size={20} />
                   <div>
                     <h2>数据与备份</h2>
-                    <p>SQLite 是权威数据源；CSV 仅用于分析，JSON/SQLite 用于备份。</p>
+                    <p>用 CSV 分析练习记录，用 JSON 或 SQLite 备份完整档案。</p>
                   </div>
                 </div>
                 <div className="data-location">
@@ -951,7 +946,7 @@ export function SettingsPage() {
                     <Download size={20} />
                     <span>
                       <strong>{downloadingSqlite ? "正在生成 SQLite…" : "下载 SQLite 备份"}</strong>
-                      <small>带本页安全令牌的一致性快照，可用于完整恢复</small>
+                      <small>保存完整训练档案，可在需要时恢复</small>
                     </span>
                   </button>
                   <button
@@ -961,12 +956,9 @@ export function SettingsPage() {
                       void api
                         .post("/api/v1/backups", { reason: "manual" })
                         .then(() => backupsQuery.refetch())
-                        .then(() => showMessage("已创建并轮转本机 SQLite 备份。"))
+                        .then(() => showMessage("已创建本机备份，并按保留规则整理旧备份。"))
                         .catch((error: unknown) =>
-                          showMessage(
-                            error instanceof Error ? error.message : "无法创建备份。",
-                            "error"
-                          )
+                          showMessage(userErrorText(error, "backup"), "error")
                         )
                     }
                   >
@@ -995,8 +987,8 @@ export function SettingsPage() {
                     <div>
                       <strong>恢复摘要</strong>
                       <span>
-                        {backupPreview.profiles} 个 profile · {backupPreview.sessions} 次 session ·{" "}
-                        {backupPreview.events.toLocaleString()} 个事件
+                        {backupPreview.profiles} 个用户档案 · {backupPreview.sessions} 次训练 ·{" "}
+                        {backupPreview.events.toLocaleString()} 个按键记录
                       </span>
                     </div>
                     <button
@@ -1004,7 +996,7 @@ export function SettingsPage() {
                       type="button"
                       onClick={() => void restore()}
                     >
-                      自动备份当前库并恢复
+                      自动备份当前数据并恢复
                     </button>
                   </div>
                 ) : null}
@@ -1014,11 +1006,7 @@ export function SettingsPage() {
                     <p role="status">正在读取最近快照…</p>
                   ) : backupsQuery.isError ? (
                     <div role="alert">
-                      <span>
-                        {backupsQuery.error instanceof Error
-                          ? `无法读取最近快照：${backupsQuery.error.message}`
-                          : "无法读取最近快照。"}
-                      </span>
+                      <span>{userErrorText(backupsQuery.error, "backup")}</span>
                       <button
                         className="text-button"
                         type="button"

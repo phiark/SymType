@@ -1,6 +1,6 @@
 # SymType Delivery Plan
 
-**Last reconciled:** 2026-07-23
+**Last reconciled:** 2026-09-07
 **Working method:** document-driven; every implementation pass begins from this plan and the
 requirements matrix, and every completed pass records evidence in `docs/progress-log.md`.
 
@@ -8,6 +8,11 @@ SymType 2.0 is now an active convergence release. `docs/v2/V2-SCOPE.md`,
 `docs/v2/V2-PLAN.md`, and `docs/v2/REQUIREMENTS-MATRIX.md` control all new work. V2 cannot add or
 remove a V1 user function or silently redefine its business contract; V2-D014 permits corrected
 fixed outputs only for confirmed implementation drift with focused regression evidence.
+
+The current candidate is Issue #18 on `refactor/18-product-experience`, based on merged PR #4
+(`481a2cb`). Its [product review](docs/v2/ISSUE-18-PRODUCT-REVIEW.md) and
+[acceptance log](docs/v2/evidence/issue-18/ACCEPTANCE.md) control current evidence. Earlier command
+counts below remain historical. The separate macOS distribution PR #6 is not part of this branch.
 
 ## Purpose
 
@@ -30,18 +35,28 @@ completed work is server-authoritative.
 
 ## Milestones
 
-| Phase | Deliverable                           | Dependency | Exit verification                     | Status          |
-| ----- | ------------------------------------- | ---------- | ------------------------------------- | --------------- |
-| 1     | Repo, docs, health, SQLite, launchers | None       | build + health + route refresh        | Done            |
-| 2     | High-risk persisted typing slice      | 1          | events survive restart/browser switch | Done            |
-| 3     | All practice modes and input settings | 2          | mode E2E in both engines              | Done            |
-| 4     | Adaptive engine and baseline          | 2          | deterministic unit/simulation suite   | Done            |
-| 5     | Analytics and data safety             | 2, 4       | empty/small/100k + restore tests      | Done            |
-| 6     | Six-level game                        | 2, 4       | success/reset/hardcore E2E            | Done            |
-| 7     | Visual/accessibility polish           | 3, 5, 6    | Chromium/WebKit screenshots           | Done            |
-| 8     | Release-candidate audit               | All        | PR #4 tracks CI, review, and merge    | Delivery active |
+| Phase | Deliverable                           | Dependency | Exit verification                      | Status          |
+| ----- | ------------------------------------- | ---------- | -------------------------------------- | --------------- |
+| 1     | Repo, docs, health, SQLite, launchers | None       | build + health + route refresh         | Done            |
+| 2     | High-risk persisted typing slice      | 1          | events survive restart/browser switch  | Done            |
+| 3     | All practice modes and input settings | 2          | mode E2E in both engines               | Done            |
+| 4     | Adaptive engine and baseline          | 2          | deterministic unit/simulation suite    | Done            |
+| 5     | Analytics and data safety             | 2, 4       | empty/small/100k + restore tests       | Done            |
+| 6     | Six-level game                        | 2, 4       | success/reset/hardcore E2E             | Done            |
+| 7     | Visual/accessibility polish           | 3, 5, 6    | Chromium/WebKit screenshots            | Done            |
+| 8     | Release-candidate audit               | All        | Issue #18 tracks CI, review, and merge | Delivery active |
 
 ## Progress
+
+- [x] Complete the Issue #18 product audit, original before/after captures and source changes within
+      the V1 function contract; retain the Issue #14 source attribution and regression exceptions.
+- [x] Pass current Node 22 checks: 64 Vitest files, 487 passed and one intentional skip, 22 literal
+      regressions, production builds; full browser suite: 85 passed and one lifecycle-owner skip.
+- [x] Review all 30 current browser PNGs and manually use the candidate's training/pause/exit path;
+      verify 100k Today → completion → Analytics with 100,245 final events and the source hash intact.
+- [ ] Complete Issue #18 repository delivery through the linked PR's CI and independent approval.
+
+### Historical implementation checkpoints
 
 - [x] Closed the Issue #3 whole-repository correctness pass with verified pre-migration snapshots,
       receive-order-independent feature repair, canonical `TypingSurface`/server WPM projections, a
@@ -244,3 +259,10 @@ merge remain before repository delivery is complete; PR #4 is the authoritative 
 The expanded experiment-enabled 100k path now measures approximately 755.5 ms for statistics plus
 dashboard on this Mac. It exercises the live calibration/retention/report calculations and supersedes
 the earlier lighter-query number for that richer path; neither result is a portable SLA.
+
+The September 7 Issue #18 candidate supersedes earlier UI/performance acceptance: focused input and
+keyboard cues, primary task order, settings save, navigation focus, failed-page recovery, repeated
+statistics caching and fractional-timing recovery are validated together. Full 100k report equality
+and revision invalidation protect existing algorithms; no migration or business-rule redesign is
+introduced. The first statistics read remains about one second. See the current acceptance log for
+source-specific measurements and remaining independent approval. This is not a formal release.

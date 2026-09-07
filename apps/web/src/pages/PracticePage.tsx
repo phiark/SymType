@@ -37,10 +37,12 @@ import {
   type TypingSurfaceHandle
 } from "../components/TypingSurface";
 import { MetricCard } from "../components/ui";
+import { userErrorText } from "../error-presentation";
 import { strategyForLocalDate } from "../experiment";
 import { usePersistentEvents } from "../hooks/usePersistentEvents";
 import { useSessionNavigationGuard } from "../hooks/useSessionNavigationGuard";
 import { activeKeyboardLayout, focusCharactersForScopes } from "../keyboard";
+import { trainingModeLabels } from "../training-labels";
 import type { BootstrapData, SessionSummary, StoredEvent } from "../types";
 
 type Phase = "warmup" | "focus" | "retest" | "transfer" | "fluency" | "explore";
@@ -163,6 +165,17 @@ const phaseLabels: Record<Phase, string> = {
   explore: "探索样本"
 };
 
+function activeContextLabel(kind: "training" | "test", mode: string, blockType?: string): string {
+  if (kind === "test") return "测试";
+  if (mode === "calibration" && blockType?.startsWith("calibration-")) {
+    const category = blockType.replace("calibration-", "");
+    return isCalibrationCategory(category)
+      ? `基线 · ${calibrationCategoryDetails[category].label}`
+      : "基线取样";
+  }
+  return phaseLabels[(blockType as Phase | undefined) ?? "focus"] ?? "训练";
+}
+
 const trainingBiasLabels: Record<TrainingBias, string> = {
   accuracy: "准确优先",
   balanced: "平衡",
@@ -237,7 +250,6 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
   const [blockIndex, setBlockIndex] = useState(0);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [progress, setProgress] = useState<TypingProgress | null>(null);
-  const [lastBlockProgress, setLastBlockProgress] = useState<TypingProgress | null>(null);
   const [blockCompletionPending, setBlockCompletionPending] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [audioNotice, setAudioNotice] = useState("");
@@ -500,7 +512,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       setSessionStartedAtMs(sessionStart);
       setRemainingMs(durationMs);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "无法开始训练。");
+      setSaveError(userErrorText(error, "start"));
       setState("ready");
     }
   };
@@ -551,9 +563,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
         return true;
       } catch (error) {
         finishingRef.current = false;
-        setSaveError(
-          error instanceof Error ? error.message : "保存失败；逐键队列仍保留在当前页面。 "
-        );
+        setSaveError(`${userErrorText(error, "save")} 尚未保存的按键仍保留在当前页面；请重试。`);
         setState("running");
         return false;
       }
@@ -577,7 +587,6 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
     blockCompletionInFlightRef.current = true;
     pendingBlockCompletionRef.current ??= blockProgress;
     setBlockCompletionPending(true);
-    setLastBlockProgress(blockProgress);
     try {
       await flush();
       if (customTextId && block) {
@@ -612,9 +621,8 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       setBlockCompletionPending(false);
       setSaveError("");
     } catch (error) {
-      const detail = error instanceof Error ? error.message : "本地服务没有完成请求。";
       setSaveError(
-        `当前微组仍保留在本页，保存或载入下一组尚未完成：${detail} 点击重试会复用同一批次，不会把本组误记为已前进。`
+        `${userErrorText(error, "session")} 当前微组仍保留在本页；点击重试会复用同一批次，不会把本组误记为已前进。`
       );
       setState("running");
     } finally {
@@ -668,7 +676,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       void api
         .post(`/api/v1/sessions/${sessionIdRef.current}/pause`, { paused })
         .catch((error: unknown) => {
-          setSaveError(error instanceof Error ? error.message : "无法保存暂停状态。");
+          setSaveError(userErrorText(error, "save"));
         });
     }
   };
@@ -698,7 +706,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       )
       .then(async () => {
         setRecoveryNotice(
-          "上次刷新中断的半节课程已标记为放弃；已落库按键仍保留，但不会冒充完成课程。"
+          "上次刷新中断的半节课程已标记为放弃；已经保存的按键仍保留，但不会冒充完成课程。"
         );
         replaceSessionParam();
         await Promise.all([
@@ -707,7 +715,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
         ]);
       })
       .catch((error: unknown) => {
-        setSaveError(error instanceof Error ? error.message : "无法恢复上次中断训练。");
+        setSaveError(userErrorText(error, "session"));
       })
       .finally(() => setState("ready"));
   }, [params, queryClient, replaceSessionParam]);
@@ -736,7 +744,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
         void navigate(kind === "test" ? "/test" : "/train", { replace: true });
       }
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "无法保存并退出当前训练。");
+      setSaveError(userErrorText(error, "session"));
     } finally {
       setExitSaving(false);
     }
@@ -759,7 +767,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
       setFeedbackState("saved");
       await queryClient.invalidateQueries({ queryKey: ["statistics"] });
     } catch (error) {
-      setFeedbackError(error instanceof Error ? error.message : "主观反馈尚未保存，请重试。");
+      setFeedbackError(userErrorText(error, "save"));
       setFeedbackState("error");
     }
   };
@@ -776,20 +784,20 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           返回{kind === "test" ? "测试" : "训练"}
         </button>
         <section className="ready-card">
-          <p className="eyebrow">{kind === "test" ? "正式打字测试" : "自适应微组"}</p>
+          <p className="eyebrow">{kind === "test" ? "正式打字测试" : "准备练习"}</p>
           <h1>
             {kind === "test"
               ? `${Math.round(durationMs / 1000)} 秒测试`
               : mode === "smart"
                 ? "今日智能课程"
-                : mode.replaceAll("-", " ")}
+                : (trainingModeLabels.get(mode) ?? "练习")}
           </h1>
           <p>
             {kind === "test"
               ? "测试单独标记；游戏和练习成绩不会进入正式测试排名。"
               : mode === "calibration"
                 ? `基线会按所选类别轮换取样，并至少记录 ${durationMinutes} 分钟有效活动时间；暂停不计时。`
-                : "当前可见微组开始后不会改写。每个边界会用刚产生的数据重排下一组。"}
+                : "按自己的节奏完成眼前这一组，下一组会自动接上。"}
           </p>
           {kind === "training" && mode !== "calibration" ? (
             <div className="focus-summary" aria-label="本轮训练计划">
@@ -803,15 +811,19 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
             <div>
               <Database size={19} />
               <span>
-                <strong>服务器权威保存</strong>
-                <small>24 个事件或最迟 3 秒批量写入 SQLite</small>
+                <strong>安全保存到本机</strong>
+                <small>练习记录会自动保存到这台电脑</small>
               </span>
             </div>
             <div>
               <Headphones size={19} />
               <span>
-                <strong>点击后解锁声音</strong>
-                <small>兼容 Safari 用户手势限制</small>
+                <strong>{bootstrap.settings.soundEnabled ? "声音反馈已开启" : "安静练习"}</strong>
+                <small>
+                  {bootstrap.settings.soundEnabled
+                    ? "开始后播放你选择的声音"
+                    : "可在设置中开启声音反馈"}
+                </small>
               </span>
             </div>
           </div>
@@ -852,7 +864,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
             )}
           </button>
           <p className="keyboard-hint">
-            开始后直接键入；Esc 退出，空格/Enter 从暂停继续。IME 组合中的按键不会记录。
+            切换到英文输入后直接键入；Esc 打开退出确认，暂停后可用空格或 Enter 继续。
           </p>
         </section>
       </div>
@@ -869,7 +881,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           </div>
           <p className="eyebrow">
             <Save size={14} />
-            {hasTrainingEvidence ? "已写入本机 SQLite" : "已安全关闭，未计入训练统计"}
+            {hasTrainingEvidence ? "已安全保存到这台电脑" : "已安全关闭，未计入训练统计"}
           </p>
           <h1 ref={completionHeadingRef} tabIndex={-1}>
             {hasTrainingEvidence
@@ -1028,9 +1040,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
                 role={feedbackState === "error" ? "alert" : "status"}
                 aria-live="polite"
               >
-                {feedbackState === "saved"
-                  ? "已写入本机 SQLite，可用于两周交叉策略报告。"
-                  : feedbackError}
+                {feedbackState === "saved" ? "已安全保存，可用于两周交叉策略报告。" : feedbackError}
               </p>
             </section>
           ) : null}
@@ -1087,19 +1097,19 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
 
   return (
     <div className="practice-page">
-      <div className="practice-context-bar">
-        <div>
-          <span>
-            {kind === "test" ? "测试" : phaseLabels[(block?.block_type as Phase) ?? "focus"]}
-          </span>
-          <strong>
-            {kind === "test"
-              ? formatDuration(remainingMs)
-              : mode === "calibration"
-                ? `剩余 ${formatDuration(remainingMs)}`
-                : `微组 ${blockIndex + 1} / ${maxBlocks}`}
-          </strong>
-        </div>
+      <div
+        className={`practice-context-bar${kind === "training" && mode !== "calibration" ? " is-compact" : ""}`}
+      >
+        {kind === "test" || mode === "calibration" ? (
+          <div className="practice-context-meta">
+            <span>{activeContextLabel(kind, mode, block?.block_type)}</span>
+            <strong>
+              {kind === "test"
+                ? formatDuration(remainingMs)
+                : `剩余 ${formatDuration(remainingMs)}`}
+            </strong>
+          </div>
+        ) : null}
         <div
           className="context-progress"
           role="progressbar"
@@ -1144,31 +1154,22 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           ) : pendingCount ? (
             <>
               <LoaderCircle className="spin" size={15} />
-              待写入 {pendingCount}
+              待保存 {pendingCount}
             </>
           ) : (
             <>
               <Database size={15} />
-              已同步
+              已保存
             </>
           )}
         </div>
       </div>
       {block ? (
         <>
-          <div className="block-rationale">
-            <span>{phaseLabels[(block.block_type as Phase) ?? "focus"]}</span>
-            <p>{block.rationale}</p>
-            {lastBlockProgress ? (
-              <small>
-                上一组 {Math.round(lastBlockProgress.accuracy * 100)}% ·{" "}
-                {Math.round(lastBlockProgress.netWpm)} 净 WPM
-              </small>
-            ) : null}
-          </div>
           <TypingSurface
             ref={surfaceRef}
             target={block.target_text}
+            blockIdentity={block.id}
             mode={
               mode === "calibration" && block.block_type.startsWith("calibration-")
                 ? block.block_type
@@ -1225,7 +1226,7 @@ export function PracticePage({ kind = "training" }: { kind?: "training" | "test"
           <Dialog.Content className="dialog-content">
             <Dialog.Title>结束这次训练？</Dialog.Title>
             <Dialog.Description>
-              已产生的有效按键会先写入 SQLite。本轮将标记为已放弃，不会伪装成已完成课程。
+              已产生的有效按键会先安全保存到这台电脑。本轮将标记为已放弃，不会伪装成已完成课程。
             </Dialog.Description>
             <div className="dialog-actions">
               <Dialog.Close asChild>

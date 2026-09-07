@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api } from "../api";
 import { soundEngine } from "../audio";
+import { userErrorText } from "../error-presentation";
 import { activeKeyboardLayout, focusCharactersForScopes } from "../keyboard";
 import type { AppSettings, BootstrapData } from "../types";
 
@@ -70,9 +71,7 @@ export function OnboardingPage({ bootstrap }: { bootstrap: BootstrapData }) {
         );
       } else void navigate("/");
     } catch (error) {
-      setSaveError(
-        error instanceof Error ? error.message : "无法保存首次设置。你的选择仍保留，可以立即重试。"
-      );
+      setSaveError(userErrorText(error, "save"));
     } finally {
       setSaving(false);
     }
@@ -124,7 +123,7 @@ export function OnboardingPage({ bootstrap }: { bootstrap: BootstrapData }) {
               <Database size={20} />
               <span>
                 <strong>只在这台电脑</strong>
-                <small>历史与设置保存在服务端本地 SQLite；清浏览器数据不会删除。</small>
+                <small>历史与设置安全保存在这台电脑；清浏览器数据不会删除。</small>
               </span>
             </div>
             <div>

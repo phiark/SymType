@@ -210,7 +210,7 @@ async function completeRealTraining(page: Page): Promise<{
   ).toBeDefined();
   expect(completion?.summary.characters).toBeGreaterThan(0);
   await expect(page.getByRole("heading", { name: "这一轮完成了" })).toBeVisible();
-  await expect(page.getByText(/已写入本机 SQLite/u)).toBeVisible();
+  await expect(page.getByText(/已安全保存到这台电脑/u)).toBeVisible();
   return {
     sessionId,
     characters: completion?.summary.characters ?? 0,
