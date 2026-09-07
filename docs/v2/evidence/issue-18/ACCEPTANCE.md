@@ -1,6 +1,7 @@
 # Issue 18 acceptance evidence
 
 Date: 2026-09-07. Issue: [#18](https://github.com/phiark/SymType/issues/18).
+Pull Request: [#19](https://github.com/phiark/SymType/pull/19).
 Product source: `e818c6dafd02d55a2257f1eec86ff1c804a60646` on
 `refactor/18-product-experience`. Documentation and reviewed PNGs follow in a separate evidence
 commit. Base: merged PR #4, `481a2cbe41824295ed9baed5f86648e4abd01af4`.
@@ -85,7 +86,7 @@ are expected; normal-flow console/runtime assertions pass.
 
 ## Delivery and limitations
 
-Local product acceptance is complete. The linked PR must still have current passing CI, resolved
+Local product acceptance is complete. [PR #19](https://github.com/phiark/SymType/pull/19) must still have current passing CI, resolved
 conversations and at least one independent approving review before merge. No self-approval or branch
 protection bypass is authorized. The PR is the live record for these external states.
 

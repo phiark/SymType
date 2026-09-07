@@ -55,7 +55,7 @@ an explicit disposition.
 | V2-G7-007  | Verify affected flows with current supported-browser evidence     | Release Blocker | design-qa.md names current in-app manual and Chromium/WebKit automated evidence     | historical Chrome-extension limitation is not a current-browser pass claim | Verified  |
 | V2-GIT-001 | Persist Issue/branch/commit/PR workflow                           | Required        | AGENTS, CONTRIBUTING, templates                                                     | Prettier and YAML parse                                                    | Verified  |
 | V2-GIT-002 | Run applicable CI on push and PR                                  | Release Blocker | workflow plus V2-D012 clean-install preparation                                     | required Node 22 check on both triggers                                    | Verified  |
-| V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR          | Release Blocker | Issue 18, refactor/18-product-experience; traceable commits                         | linked PR and live remote metadata                                         | Blocked   |
+| V2-GIT-003 | Create traceable Issue, numbered branch, commits, and PR          | Release Blocker | Issue #18, numbered branch, atomic commits and linked PR #19                        | live GitHub issue/branch/PR metadata                                       | Verified  |
 | V2-GIT-004 | Protect `main` and require review/checks                          | Required        | saved classic rule plus Squash-only and auto-delete                                 | PR, approval, current CI/branch, no bypass                                 | Verified  |
 
 ## Issue 18 additional acceptance
@@ -66,7 +66,7 @@ an explicit disposition.
 | V2-G3-005  | Keep fractional browser timing recoverable          | Release Blocker | V2-D017 aggregate integer-ms normalization; raw timing retained         | abandon/recover, restart, export, mixed-input browser replay             | Verified |
 | V2-G4-007  | Keep primary tasks and selected context reachable   | Required        | mode groups, scope summary, focus return, sticky save, game start order | new product-journey Chromium/WebKit assertions                           | Verified |
 | V2-G4-008  | Recover a failed lazy page without developer output | Required        | AppRecovery reload, home link and saved/unsaved guidance                | 503 module failure; reload invoked; home works; SQLite setting survives  | Verified |
-| V2-GIT-005 | Complete Issue 18 repository handoff                | Release Blocker | linked PR; no merge bypass                                              | passing current CI, resolved conversations, independent approving review | Blocked  |
+| V2-GIT-005 | Complete Issue 18 repository handoff                | Release Blocker | PR #19 is open; independent approval is still required                  | passing current CI, resolved conversations, independent approving review | Blocked  |
 
 ## Incorporated V1 function contract
 

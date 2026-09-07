@@ -1102,3 +1102,6 @@ Local acceptance is recorded in `docs/v2/evidence/issue-18/ACCEPTANCE.md`. The l
 required to pass current CI and receive independent approval before merge. Historical Chrome-profile
 blockage is preserved as history, not claimed as a current manual Chrome pass. The official STE PDF,
 missing Keybr references and other explicitly uncollected evidence retain their existing dispositions.
+
+- Publication checkpoint: pushed evidence commit `8395a59` and opened [PR #19](https://github.com/phiark/SymType/pull/19) against
+  current main. CI is running and the review decision is `REVIEW_REQUIRED`; no merge is performed.

@@ -1,6 +1,7 @@
 # Issue 18: product journey and measured performance
 
 Review date: 2026-09-07. Issue: [#18](https://github.com/phiark/SymType/issues/18).
+Pull Request: [#19](https://github.com/phiark/SymType/pull/19).
 Baseline: `origin/main` at `481a2cb`. Candidate: `refactor/18-product-experience`.
 
 The product goal is a clear loop: choose a useful practice, type without ambiguity, understand the
