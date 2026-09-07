@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, type RefObject } from "react";
 import {
   BarChart3,
   CalendarDays,
@@ -23,19 +23,33 @@ const navigation = [
   { to: "/settings", label: "设置", icon: Settings, end: false }
 ] as const;
 
+function RouteContent({
+  bootstrap,
+  mainRef
+}: {
+  bootstrap: BootstrapData;
+  mainRef: RefObject<HTMLElement | null>;
+}) {
+  const location = useLocation();
+  useEffect(() => {
+    // Run inside Suspense so the destination, including hash targets, is mounted first.
+    const frame = window.requestAnimationFrame(() => {
+      const anchor = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+      mainRef.current?.focus({ preventScroll: true });
+      if (anchor) anchor.scrollIntoView({ behavior: "instant", block: "start" });
+      else window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.pathname, location.hash, mainRef]);
+  return <Outlet context={{ bootstrap }} />;
+}
+
 export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
   const location = useLocation();
   const focused = location.pathname.includes("/session") || location.pathname.includes("/play");
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const menuOpen = menuPath === location.pathname;
   const mainRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      mainRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [location.pathname]);
 
   if (focused) {
     return (
@@ -51,7 +65,7 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
         </header>
         <main id="main-content" ref={mainRef} tabIndex={-1}>
           <Suspense fallback={<LoadingState label="正在打开页面…" />}>
-            <Outlet context={{ bootstrap }} />
+            <RouteContent bootstrap={bootstrap} mainRef={mainRef} />
           </Suspense>
         </main>
       </div>
@@ -101,7 +115,7 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
       </aside>
       <main id="main-content" ref={mainRef} className="main-content" tabIndex={-1}>
         <Suspense fallback={<LoadingState label="正在打开页面…" />}>
-          <Outlet context={{ bootstrap }} />
+          <RouteContent bootstrap={bootstrap} mainRef={mainRef} />
         </Suspense>
       </main>
     </div>

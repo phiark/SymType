@@ -21,6 +21,7 @@ describe("AppShell keyboard navigation", () => {
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("scrollTo", vi.fn());
 
     render(
       <MemoryRouter initialEntries={["/"]}>
@@ -51,6 +52,7 @@ describe("AppShell keyboard navigation", () => {
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("scrollTo", vi.fn());
 
     render(
       <MemoryRouter initialEntries={["/train/session"]}>
