@@ -67,7 +67,8 @@ import {
   periodBounds,
   robustLearningSlope,
   type PeriodFeatureRow,
-  type PeriodGroupRow
+  type PeriodGroupRow,
+  type StatisticsPeriod
 } from "../domain/statistics-analysis.js";
 import { migrations } from "./migrations.js";
 
@@ -419,6 +420,10 @@ function publicSessionSummary(summary: PersistedSessionSummary): SessionSummary 
 export class SymTypeDatabase {
   readonly db: Database.Database;
   readonly config: ServerConfig;
+  private readonly statisticsCache = new Map<
+    StatisticsPeriod,
+    { token: string; report: Record<string, unknown> }
+  >();
   private integrityCache: { token: string; result: { ok: boolean; detail: string } } | undefined;
 
   constructor(config: ServerConfig) {
@@ -836,7 +841,7 @@ export class SymTypeDatabase {
     return failures;
   }
 
-  private integrityCacheToken(): string {
+  private databaseRevision(): string {
     const totalChanges = this.db.prepare("SELECT total_changes() AS count").get() as {
       count: number;
     };
@@ -845,7 +850,7 @@ export class SymTypeDatabase {
   }
 
   integrityCheck(options: { refresh?: boolean } = {}): { ok: boolean; detail: string } {
-    const token = this.integrityCacheToken();
+    const token = this.databaseRevision();
     if (!options.refresh && this.integrityCache?.token === token) {
       return this.integrityCache.result;
     }
@@ -862,7 +867,7 @@ export class SymTypeDatabase {
       ...jsonFailures
     ].join("; ");
     const result = { ok, detail };
-    this.integrityCache = { token: this.integrityCacheToken(), result };
+    this.integrityCache = { token: this.databaseRevision(), result };
     return result;
   }
 
@@ -2543,8 +2548,28 @@ export class SymTypeDatabase {
     return buildPeriodGroups(rows);
   }
 
-  getStatistics(period: "today" | "7d" | "30d" | "all"): Record<string, unknown> {
-    const bounds = periodBounds(period);
+  getStatistics(period: StatisticsPeriod): Record<string, unknown> {
+    const reference = new Date();
+    const bounds = periodBounds(period, reference);
+    const token = `${this.databaseRevision()}:${localDate(reference)}:${bounds.instant}`;
+    const cached = this.statisticsCache.get(period);
+    // Transactions may roll back without rewinding total_changes(). Never cache their snapshots.
+    if (!this.db.inTransaction && cached?.token === token) return structuredClone(cached.report);
+    const report = this.calculateStatistics(period, bounds);
+    // A second connection can commit during a report. Do not retain an inconsistent revision.
+    if (
+      !this.db.inTransaction &&
+      token === `${this.databaseRevision()}:${localDate(new Date())}:${bounds.instant}`
+    ) {
+      this.statisticsCache.set(period, { token, report: structuredClone(report) });
+    }
+    return report;
+  }
+
+  private calculateStatistics(
+    period: StatisticsPeriod,
+    bounds: ReturnType<typeof periodBounds>
+  ): Record<string, unknown> {
     const since = bounds.instant;
     const selectedSessions = this.getCanonicalSessionMetrics(since);
     const canonicalOverview = this.aggregateCanonicalMetrics(selectedSessions);
